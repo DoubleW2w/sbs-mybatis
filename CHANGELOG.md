@@ -1,5 +1,7 @@
 ## 创建简单的映射器代理工厂
 
+> 代码分支：[01-mapper-proxy-factory](https://github.com/DoubleW2w/sbs-mybatis/tree/01-mapper-proxy-factory)
+
 所谓的代理就是提供一种手段来控制对目标对象的访问。「代理」就像一个”经纪人“，”中介“一样的角色作用，避免其他对象直接访问目标对象。
 
 映射器代理类包装「对数据库的操作」。
@@ -37,4 +39,118 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
 - 针对 `Object` 的方法，是不需要代理执行的
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409010515991.png"/>
+
+## 映射器的注册和使用
+
+> 代码分支：02-mapper-registry
+
+### S
+
+为了解决以下问题：
+
+1. 需要编码告知 `MapperProxyFactory` 要对哪个接口进行代理
+2. 编写一个假的 `SqlSession` 处理实际调用接口时的返回结果
+
+### T
+
+所以，提供「注册机」负责注册映射器，比如完成包路径下的扫描注册。完善 `SqlSession`，将 `SqlSession` 定义数据库操作接口和获取 Mapper 的操作。
+目的是为了提供一种功能服务，那么相应也要存在对应的功能服务工厂。
+
+### A
+
+```java
+public class MapperRegistry {
+
+  /** 将已添加的映射器代理加入到 HashMap */
+  private final Map<Class<?>, MapperProxyFactory<?>> knownMappers = new HashMap<>();
+
+  public <T> T getMapper(Class<T> type, SqlSession sqlSession) {
+    final MapperProxyFactory<T> mapperProxyFactory = (MapperProxyFactory<T>) knownMappers.get(type);
+    if (mapperProxyFactory == null) {
+      throw new RuntimeException("Type " + type + " is not known to the MapperRegistry.");
+    }
+    try {
+      return mapperProxyFactory.newInstance(sqlSession);
+    } catch (Exception e) {
+      throw new RuntimeException("Error getting mapper instance. Cause: " + e, e);
+    }
+  }
+
+  public void addMappers(String packageName) {
+    Set<Class<?>> mapperSet = ClassScanner.scanPackage(packageName);
+    for (Class<?> mapperClass : mapperSet) {
+      addMapper(mapperClass);
+    }
+  }
+
+  /**
+   * 注册映射器
+   *
+   * @param type 映射器
+   * @param <T> 映射器类型
+   */
+  public <T> void addMapper(Class<?> type) {
+    /* Mapper 必须是接口才会注册 */
+    if (type.isInterface()) {
+      if (hasMapper(type)) {
+        // 如果重复添加了，报错
+        throw new RuntimeException("Type " + type + " is already known to the MapperRegistry.");
+      }
+      // 注册映射器代理工厂
+      knownMappers.put(type, new MapperProxyFactory<>(type));
+    }
+  }
+
+  /**
+   * 是否扫描该Mapper
+   *
+   * @param type Mapper
+   * @return true - 已注册，false - 未注册
+   * @param <T> 映射器类型
+   */
+  public <T> boolean hasMapper(Class<T> type) {
+    return knownMappers.containsKey(type);
+  }
+}
+```
+
+测试方法：
+
+```java
+  @Test
+  public void test_MapperProxyFactory() {
+    // 1. 注册 Mapper
+    MapperRegistry registry = new MapperRegistry();
+    // 2. 扫描包路径
+    registry.addMappers("com.doublew2w.sbs.mybatis.binding.test.dao");
+
+    // 创建SqlSession工厂，创建SqlSession
+    SqlSessionFactory sqlSessionFactory = new DefaultSqlSessionFactory(registry);
+    SqlSession sqlSession = sqlSessionFactory.openSession();
+
+    // 3. 获取映射器对象
+    IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+
+    // 4. 测试验证
+    String res = userDao.queryUserName("10001");
+    logger.info( res);
+  }
+```
+
+```
+06:04:47.052 [main] INFO com.doublew2w.sbs.mybatis.binding.test.IUserDaoApiTest -- 你被代理了！方法：com.doublew2w.sbs.mybatis.binding.test.dao.IUserDao 入参：["10001"]
+```
+
+### R
+
+- `MapperRegistry` 提供包路径的扫描和注册映射器的代理类
+- `SqlSession` 用于定义执行 SQL 标准、获取映射器等方面操作。
+- `SqlSessionFactory` 是一个简单工厂模式，用于提供 `SqlSession` 服务，屏蔽创建细节，延迟创建过程。
+- 涉及概念「映射器」、「代理类」、「接口标准」、「工厂模式」
+
+#### 简单工厂模式实现
+
+在简单工厂模式中，工厂类提供一个公开方法负责完成对象的创建。实现的逻辑相对简单，适用于只有少数的产品需要创建。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409010611050.png"/>
 

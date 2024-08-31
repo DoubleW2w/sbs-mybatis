@@ -1,5 +1,7 @@
 package com.doublew2w.sbs.mybatis.binding;
 
+import com.doublew2w.sbs.mybatis.session.SqlSession;
+
 import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -17,12 +19,12 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
   private static final long serialVersionUID = -8932997989399317814L;
 
   /** Sql会话 */
-  private Map<String, String> sqlSession;
+  private SqlSession sqlSession;
 
   /** 映射器接口类型 */
   private final Class<T> mapperInterface;
 
-  public MapperProxy(Map<String, String> sqlSession, Class<T> mapperInterface) {
+  public MapperProxy(SqlSession sqlSession, Class<T> mapperInterface) {
     this.sqlSession = sqlSession;
     this.mapperInterface = mapperInterface;
   }
@@ -33,7 +35,7 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
     if (Object.class.equals(method.getDeclaringClass())) {
       return method.invoke(this, args);
     } else {
-      return "你的映射器被代理了！" + sqlSession.get(mapperInterface.getName() + "." + method.getName());
+      return sqlSession.selectOne(mapperInterface.getName(), args);
     }
   }
 }

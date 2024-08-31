@@ -1,7 +1,8 @@
 package com.doublew2w.sbs.mybatis.binding;
 
+import com.doublew2w.sbs.mybatis.session.SqlSession;
+
 import java.lang.reflect.Proxy;
-import java.util.Map;
 
 /**
  * 映射器代理工厂：负责创建映射器代理类
@@ -24,10 +25,8 @@ public class MapperProxyFactory<T> {
    * @param sqlSession Sql会话
    * @return 映射器代理类
    */
-  public T newInstance(Map<String, String> sqlSession) {
+  public T newInstance(SqlSession sqlSession) {
     final MapperProxy<T> mapperProxy = new MapperProxy<>(sqlSession, mapperInterface);
-    //  return (T) Proxy.newProxyInstance(mapperInterface.getClassLoader(), new Class[]
-    // {mapperInterface}, mapperProxy);
     return mapperInterface.cast(
         Proxy.newProxyInstance(
             mapperInterface.getClassLoader(), new Class[] {mapperInterface}, mapperProxy));
