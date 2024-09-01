@@ -1,6 +1,7 @@
 package com.doublew2w.sbs.mybatis.session.defaults;
 
 import com.doublew2w.sbs.mybatis.binding.MapperRegistry;
+import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.session.SqlSession;
 import com.doublew2w.sbs.mybatis.session.SqlSessionFactory;
 
@@ -11,15 +12,14 @@ import com.doublew2w.sbs.mybatis.session.SqlSessionFactory;
  */
 public class DefaultSqlSessionFactory implements SqlSessionFactory {
 
-  /** 映射器注册机 */
-  private MapperRegistry mapperRegistry;
+  private final Configuration configuration;
 
-  public DefaultSqlSessionFactory(MapperRegistry mapperRegistry) {
-    this.mapperRegistry = mapperRegistry;
+  public DefaultSqlSessionFactory(Configuration configuration) {
+    this.configuration = configuration;
   }
 
   @Override
   public SqlSession openSession() {
-    return new DefaultSqlSession(mapperRegistry);
+    return new DefaultSqlSession(configuration);
   }
 }

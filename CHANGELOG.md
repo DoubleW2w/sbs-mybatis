@@ -1,6 +1,7 @@
 ## 创建简单的映射器代理工厂
 
-> 代码分支：[01-mapper-proxy-factory](https://github.com/DoubleW2w/sbs-mybatis/tree/01-mapper-proxy-factory)
+>
+代码分支：[01-mapper-proxy-factory](https://github.com/DoubleW2w/sbs-mybatis/tree/01-mapper-proxy-factory)
 
 所谓的代理就是提供一种手段来控制对目标对象的访问。「代理」就像一个”经纪人“，”中介“一样的角色作用，避免其他对象直接访问目标对象。
 
@@ -35,6 +36,7 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
   }
 }
 ```
+
 - 实现 InvocationHandler 接口，将具体的操作逻辑封装在 `invoke()` 方法中
 - 针对 `Object` 的方法，是不需要代理执行的
 
@@ -42,7 +44,7 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
 
 ## 映射器的注册和使用
 
-> 代码分支：02-mapper-registry
+> 代码分支：[02-mapper-registry](https://github.com/DoubleW2w/sbs-mybatis/tree/02-mapper-registry)
 
 ### S
 
@@ -53,8 +55,11 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
 
 ### T
 
-所以，提供「注册机」负责注册映射器，比如完成包路径下的扫描注册。完善 `SqlSession`，将 `SqlSession` 定义数据库操作接口和获取 Mapper 的操作。
+所以，提供「注册机」负责注册映射器，比如完成包路径下的扫描注册。完善 `SqlSession`，将 `SqlSession`
+定义数据库操作接口和获取 Mapper 的操作。
 目的是为了提供一种功能服务，那么相应也要存在对应的功能服务工厂。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409011616508.png"/>
 
 ### A
 
@@ -117,28 +122,29 @@ public class MapperRegistry {
 测试方法：
 
 ```java
-  @Test
-  public void test_MapperProxyFactory() {
-    // 1. 注册 Mapper
-    MapperRegistry registry = new MapperRegistry();
-    // 2. 扫描包路径
-    registry.addMappers("com.doublew2w.sbs.mybatis.binding.test.dao");
 
-    // 创建SqlSession工厂，创建SqlSession
-    SqlSessionFactory sqlSessionFactory = new DefaultSqlSessionFactory(registry);
-    SqlSession sqlSession = sqlSessionFactory.openSession();
+@Test
+public void test_MapperProxyFactory() {
+  // 1. 注册 Mapper
+  MapperRegistry registry = new MapperRegistry();
+  // 2. 扫描包路径
+  registry.addMappers("com.doublew2w.sbs.mybatis.binding.test.dao");
 
-    // 3. 获取映射器对象
-    IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+  // 创建SqlSession工厂，创建SqlSession
+  SqlSessionFactory sqlSessionFactory = new DefaultSqlSessionFactory(registry);
+  SqlSession sqlSession = sqlSessionFactory.openSession();
 
-    // 4. 测试验证
-    String res = userDao.queryUserName("10001");
-    logger.info( res);
-  }
+  // 3. 获取映射器对象
+  IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+
+  // 4. 测试验证
+  String res = userDao.queryUserName("10001");
+  logger.info(res);
+}
 ```
 
 ```
-06:04:47.052 [main] INFO com.doublew2w.sbs.mybatis.binding.test.IUserDaoApiTest -- 你被代理了！方法：com.doublew2w.sbs.mybatis.binding.test.dao.IUserDao 入参：["10001"]
+06:04:47.052 [main] INFO com.doublew2w.sbs.mybatis.test.binding.dao.IUserDaoApiTest -- 你被代理了！方法：com.doublew2w.sbs.mybatis.binding.test.dao.IUserDao 入参：["10001"]
 ```
 
 ### R
@@ -153,4 +159,112 @@ public class MapperRegistry {
 在简单工厂模式中，工厂类提供一个公开方法负责完成对象的创建。实现的逻辑相对简单，适用于只有少数的产品需要创建。
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409010611050.png"/>
+
+## Mapper XML 解析和使用
+
+> 代码分支：[03-mapper-xml-parse](https://github.com/DoubleW2w/sbs-mybatis/tree/03-mapper-xml-parse)
+
+## S
+
+在 MyBatis 的核心逻辑中，重要的一个逻辑就是为接口生成一个代理类，类中包含了对 Mapper XML 文件中的 SQL 信息进行解析和处理类型
+
+- 入参
+- 出参
+- 条件
+
+## T
+
+目标是完成 XML 文件的解析和使用。
+
+- 提供一个全局的配置类 Configuration，存放 XML 的解析内容。
+- 通过 IO 流读取 XML 配置文件，然后解析 XML 节点进行「SQL 解析」、「Mapper 注册」。
+
+## A
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409012241359.png"/>
+
+- `MappedStatement` 映射语句类封装了 Mapper XML 的 SQL 语句
+- `MapperMehtod` 映射器方法类
+  文件中映射语句，比如「映射语句唯一标识 id」、「SELECT|UPDATE|DELETE|INSERT 指令」、「出参、入参」等信息
+- `XMLConfigBuilder` 继承 `BaseBuilder` 具有解析 XML 文件的内容
+- `SqlSessionFactoryBuilder` 可以理解为 `SqlSessionFactory` 的工厂类，通过指定解析 XML 的 IO，启动流程
+
+```java
+  @Test
+  public void test_SqlSessionFactory() throws IOException {
+    // 1. 从SqlSessionFactory中获取SqlSession
+    Reader reader = Resources.getResourceAsReader("mybatis-config.xml");
+    // 解析xml 文件，并将xml信息加载到 Configuration 类
+    SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
+    SqlSession sqlSession = sqlSessionFactory.openSession();
+
+    // 2. 获取映射器对象
+    IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+
+    // 3. 测试验证
+    String res = userDao.queryUserInfoById("10001");
+    logger.info("测试结果：{}", res);
+  }
+}
+```
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409012348732.png"/>
+
+## R
+
+### 建造者模式
+
+定义：一种「创建型设计模式」，使你能够分步骤创建复杂对象。 该模式允许你使用相同的创建代码生成不同类型和形式的对象。
+
+
+
+虽然所谓的 <u> *分步骤创建* </u> 跟直接调用分步调用 setter 是一样的，但是在代码体现上，setter 方法返回 `void`，而 Builder 每一步都返回自身。
+
+该模式可以避免“多个构造函数”的出现，它的重点主要是 **如何分步创建一个复杂对象**
+
+
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409012347901.png"/>
+
+
+
+
+
+
+
+例子 1 在 `MappedStatement` 类中。
+
+```java
+public class MappedStatement {
+
+  public static class Builder {
+
+    private MappedStatement mappedStatement = new MappedStatement();
+
+    public Builder(){
+			// 省略...
+    }
+    public MappedStatement build() {
+      // 省略..
+      return mappedStatement;
+    }
+  }
+}
+```
+
+例子 2 在 `SqlSessionFactoryBuilder` 类中体现
+
+```java
+public class SqlSessionFactoryBuilder {
+
+  public SqlSessionFactory build(Reader reader) {
+    XMLConfigBuilder xmlConfigBuilder = new XMLConfigBuilder(reader);
+    return build(xmlConfigBuilder.parse());
+  }
+
+  public SqlSessionFactory build(Configuration config) {
+    return new DefaultSqlSessionFactory(config);
+  }
+}
+```
 

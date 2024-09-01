@@ -30,11 +30,18 @@ public interface SqlSession {
   <T> T selectOne(String statement, Object parameter);
 
   /**
-   *  得到映射器，这个巧妙的使用了泛型，使得类型安全
+   * 获取映射器，这个巧妙的使用了泛型，使得类型安全
    *
    * @param <T> the mapper type
    * @param type Mapper interface class
    * @return a mapper bound to this SqlSession
    */
   <T> T getMapper(Class<T> type);
+
+  /**
+   * 获取配置
+   *
+   * @return Configuration
+   */
+  Configuration getConfiguration();
 }

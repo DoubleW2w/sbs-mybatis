@@ -24,9 +24,14 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
   /** 映射器接口类型 */
   private final Class<T> mapperInterface;
 
-  public MapperProxy(SqlSession sqlSession, Class<T> mapperInterface) {
+  /** */
+  private final Map<Method, MapperMethod> methodCache;
+
+  public MapperProxy(
+      SqlSession sqlSession, Class<T> mapperInterface, Map<Method, MapperMethod> methodCache) {
     this.sqlSession = sqlSession;
     this.mapperInterface = mapperInterface;
+    this.methodCache = methodCache;
   }
 
   @Override
@@ -35,7 +40,14 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
     if (Object.class.equals(method.getDeclaringClass())) {
       return method.invoke(this, args);
     } else {
-      return sqlSession.selectOne(mapperInterface.getName(), args);
+      final MapperMethod mapperMethod = cachedMapperMethod(method);
+      return mapperMethod.execute(sqlSession, args);
     }
+  }
+
+  /** 去缓存中找MapperMethod */
+  private MapperMethod cachedMapperMethod(Method method) {
+    return methodCache.computeIfAbsent(
+        method, key -> new MapperMethod(mapperInterface, method, sqlSession.getConfiguration()));
   }
 }

@@ -1,4 +1,4 @@
-package com.doublew2w.sbs.mybatis.binding.test.dao;
+package com.doublew2w.sbs.mybatis.test.dao;
 
 /**
  * @author: DoubleW2w
