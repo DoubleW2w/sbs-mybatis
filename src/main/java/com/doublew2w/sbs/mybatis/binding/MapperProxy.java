@@ -1,7 +1,6 @@
 package com.doublew2w.sbs.mybatis.binding;
 
 import com.doublew2w.sbs.mybatis.session.SqlSession;
-
 import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -47,7 +46,12 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
 
   /** 去缓存中找MapperMethod */
   private MapperMethod cachedMapperMethod(Method method) {
-    return methodCache.computeIfAbsent(
-        method, key -> new MapperMethod(mapperInterface, method, sqlSession.getConfiguration()));
+    MapperMethod mapperMethod = methodCache.get(method);
+    if (mapperMethod == null) {
+      // 找不到才去new
+      mapperMethod = new MapperMethod(mapperInterface, method, sqlSession.getConfiguration());
+      methodCache.put(method, mapperMethod);
+    }
+    return mapperMethod;
   }
 }

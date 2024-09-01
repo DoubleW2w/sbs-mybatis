@@ -1,17 +1,19 @@
 package com.doublew2w.sbs.mybatis.builder.xml;
 
 import com.doublew2w.sbs.mybatis.builder.BaseBuilder;
+import com.doublew2w.sbs.mybatis.datasource.DataSourceFactory;
 import com.doublew2w.sbs.mybatis.io.Resources;
+import com.doublew2w.sbs.mybatis.mapping.BoundSql;
+import com.doublew2w.sbs.mybatis.mapping.Environment;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.mapping.SqlCommandType;
 import com.doublew2w.sbs.mybatis.session.Configuration;
+import com.doublew2w.sbs.mybatis.transaction.TransactionFactory;
 import java.io.Reader;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -49,12 +51,57 @@ public class XMLConfigBuilder extends BaseBuilder {
    */
   public Configuration parse() {
     try {
+      // 环境
+      environmentsElement(root.element("environments"));
       // 解析映射器
       mapperElement(root.element("mappers"));
     } catch (Exception e) {
       throw new RuntimeException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
     }
     return configuration;
+  }
+
+  /**
+   * <environments default="development"> <environment id="development"> <transactionManager
+   * type="JDBC"> <property name="..." value="..."/> </transactionManager> <dataSource
+   * type="POOLED"> <property name="driver" value="${driver}"/> <property name="url"
+   * value="${url}"/> <property name="username" value="${username}"/> <property name="password"
+   * value="${password}"/> </dataSource> </environment> </environments>
+   */
+  private void environmentsElement(Element environments) throws Exception {
+    // 默认环境
+    String environment = environments.attributeValue("default");
+    List<Element> environmentList = environments.elements("environment");
+    for (Element e : environmentList) {
+      String id = e.attributeValue("id");
+      if (environment.equals(id)) {
+        // todo：事务管理器，缺少对应的测试
+        TransactionFactory txFactory =
+            (TransactionFactory)
+                typeAliasRegistry
+                    .resolveAlias(e.element("transactionManager").attributeValue("type"))
+                    .newInstance();
+        // 数据源
+        Element dataSourceElement = e.element("dataSource");
+        DataSourceFactory dataSourceFactory =
+            (DataSourceFactory)
+                typeAliasRegistry
+                    .resolveAlias(dataSourceElement.attributeValue("type"))
+                    .newInstance();
+        List<Element> propertyList = dataSourceElement.elements("property");
+        Properties props = new Properties();
+        for (Element property : propertyList) {
+          props.setProperty(property.attributeValue("name"), property.attributeValue("value"));
+        }
+        dataSourceFactory.setProperties(props);
+        DataSource dataSource = dataSourceFactory.getDataSource();
+
+        // 构建环境
+        Environment.Builder environmentBuilder =
+            new Environment.Builder(id).transactionFactory(txFactory).dataSource(dataSource);
+        configuration.setEnvironment(environmentBuilder.build());
+      }
+    }
   }
 
   /**
@@ -106,10 +153,10 @@ public class XMLConfigBuilder extends BaseBuilder {
         String nodeName = node.getName();
         SqlCommandType sqlCommandType =
             SqlCommandType.valueOf(nodeName.toUpperCase(Locale.ENGLISH));
+
+        BoundSql boundSql = new BoundSql(sql, parameter, parameterType, resultType);
         MappedStatement mappedStatement =
-            new MappedStatement.Builder(
-                    configuration, msId, sqlCommandType, parameterType, resultType, sql, parameter)
-                .build();
+            new MappedStatement.Builder(configuration, msId, sqlCommandType, boundSql).build();
         // 添加解析 SQL
         configuration.addMappedStatement(mappedStatement);
       }

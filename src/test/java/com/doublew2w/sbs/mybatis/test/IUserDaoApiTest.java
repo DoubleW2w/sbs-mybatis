@@ -1,12 +1,11 @@
 package com.doublew2w.sbs.mybatis.test;
 
+import com.alibaba.fastjson2.JSON;
 import com.doublew2w.sbs.mybatis.io.Resources;
-import com.doublew2w.sbs.mybatis.session.SqlSession;
-import com.doublew2w.sbs.mybatis.session.SqlSessionFactory;
-import com.doublew2w.sbs.mybatis.session.SqlSessionFactoryBuilder;
+import com.doublew2w.sbs.mybatis.session.*;
 import com.doublew2w.sbs.mybatis.test.dao.IUserDao;
+import com.doublew2w.sbs.mybatis.test.po.User;
 import java.io.IOException;
-import java.io.Reader;
 import java.lang.reflect.Proxy;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -35,16 +34,15 @@ public class IUserDaoApiTest {
   @Test
   public void test_SqlSessionFactory() throws IOException {
     // 1. 从SqlSessionFactory中获取SqlSession
-    Reader reader = Resources.getResourceAsReader("mybatis-config.xml");
-    // 解析xml 文件，并将xml信息加载到 Configuration 类
-    SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
+    SqlSessionFactory sqlSessionFactory =
+        new SqlSessionFactoryBuilder().build(Resources.getResourceAsReader("mybatis-config.xml"));
     SqlSession sqlSession = sqlSessionFactory.openSession();
 
     // 2. 获取映射器对象
     IUserDao userDao = sqlSession.getMapper(IUserDao.class);
 
     // 3. 测试验证
-    String res = userDao.queryUserInfoById("10001");
-    logger.info("测试结果：{}", res);
+    User user = userDao.queryUserInfoById(1L);
+    logger.info("测试结果：{}", JSON.toJSONString(user));
   }
 }

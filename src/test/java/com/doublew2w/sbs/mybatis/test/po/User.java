@@ -1,9 +1,7 @@
 package com.doublew2w.sbs.mybatis.test.po;
 
-import lombok.Data;
-import lombok.Setter;
-
 import java.util.Date;
+import lombok.Data;
 
 /**
  * @author: DoubleW2w
@@ -13,8 +11,14 @@ import java.util.Date;
 @Data
 public class User {
   private Long id;
-  private String userId; // 用户ID
-  private String userHead; // 头像
-  private Date createTime; // 创建时间
-  private Date updateTime; // 更新时间
+  // 用户ID
+  private String userId;
+  // 用户名称
+  private String userName;
+  // 头像
+  private String userHead;
+  // 创建时间
+  private Date createTime;
+  // 更新时间
+  private Date updateTime;
 }

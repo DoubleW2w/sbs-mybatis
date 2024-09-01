@@ -1,5 +1,7 @@
 package com.doublew2w.sbs.mybatis.test.dao;
 
+import com.doublew2w.sbs.mybatis.test.po.User;
+
 /**
  * @author: DoubleW2w
  * @date: 2024/9/1 4:46
@@ -10,5 +12,5 @@ public interface IUserDao {
 
   Integer queryUserAge(String uId);
 
-  String queryUserInfoById(String uId);
+  User queryUserInfoById(Long uId);
 }

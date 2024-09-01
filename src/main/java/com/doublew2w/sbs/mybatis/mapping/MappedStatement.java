@@ -4,8 +4,6 @@ import com.doublew2w.sbs.mybatis.session.Configuration;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Map;
-
 /**
  * 映射语句类
  *
@@ -24,17 +22,8 @@ public class MappedStatement {
   /** SQL指令类型 */
   private SqlCommandType sqlCommandType;
 
-  /** 参数类型 */
-  private String parameterType;
-
-  /** 结果类型 */
-  private String resultType;
-
-  /** SQL语句 */
-  private String sql;
-
-  /** 参数位置映射 */
-  private Map<Integer, String> parameter;
+  /** 绑定的SQL语句 */
+  private BoundSql boundSql;
 
   MappedStatement() {}
 
@@ -44,20 +33,11 @@ public class MappedStatement {
     private MappedStatement mappedStatement = new MappedStatement();
 
     public Builder(
-        Configuration configuration,
-        String id,
-        SqlCommandType sqlCommandType,
-        String parameterType,
-        String resultType,
-        String sql,
-        Map<Integer, String> parameter) {
+        Configuration configuration, String id, SqlCommandType sqlCommandType, BoundSql boundSql) {
       mappedStatement.configuration = configuration;
       mappedStatement.id = id;
       mappedStatement.sqlCommandType = sqlCommandType;
-      mappedStatement.parameterType = parameterType;
-      mappedStatement.resultType = resultType;
-      mappedStatement.sql = sql;
-      mappedStatement.parameter = parameter;
+      mappedStatement.boundSql = boundSql;
     }
 
     public MappedStatement build() {
@@ -69,5 +49,21 @@ public class MappedStatement {
     public String id() {
       return mappedStatement.id;
     }
+  }
+
+  public Configuration getConfiguration() {
+    return configuration;
+  }
+
+  public String getId() {
+    return id;
+  }
+
+  public SqlCommandType getSqlCommandType() {
+    return sqlCommandType;
+  }
+
+  public BoundSql getBoundSql() {
+    return boundSql;
   }
 }

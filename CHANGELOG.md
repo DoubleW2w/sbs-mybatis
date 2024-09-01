@@ -268,3 +268,149 @@ public class SqlSessionFactoryBuilder {
 }
 ```
 
+## 数据源的解析、创建和使用
+
+>
+代码分支: [04-datasource-parse-create-use](https://github.com/DoubleW2w/sbs-mybatis/tree/04-datasource-parse-create-use)
+
+### S
+
+在解决映射器的代理，Mapper 映射，SQL 的简单解析，接下来应该连接「数据库」和执行 SQL 语句返回执行结果
+
+### T
+
+解析数据源的配置信息，并创建数据源，并使用数据源完成对数据库操作。
+
+### A
+
+- 关于数据源配置和创建数据源，在 `parse()` 方法添加对连接池，数据库配置的解析
+
+- 关于执行 SQL，则需要从数据库连接池中获取数据库连接，并调用数据库操作方法
+
+```java
+public interface DataSourceFactory {
+  /**
+   * 设置数据源属性
+   *
+   * @param props 属性
+   */
+  void setProperties(Properties props);
+
+  /**
+   * 获取数据源
+   *
+   * @return 数据源
+   */
+  DataSource getDataSource();
+}
+```
+
+```java
+public class DruidDataSourceFactory implements DataSourceFactory {
+  private Properties props;
+
+  @Override
+  public void setProperties(Properties props) {
+    this.props = props;
+  }
+
+  @Override
+  public DataSource getDataSource() {
+    try (DruidDataSource dataSource = new DruidDataSource()) {
+      dataSource.setDriverClassName(props.getProperty("driver"));
+      dataSource.setUrl(props.getProperty("url"));
+      dataSource.setUsername(props.getProperty("username"));
+      dataSource.setPassword(props.getProperty("password"));
+      return dataSource;
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+}
+```
+
+- 数据源连接池引入 Druid
+- 创建 DruidDataSourceFactory 来包装数据源功能
+- 在 XMLConfigBuilder 解析 XML 配置操作中，对数据源的配置进行解析以及创建出相应的服务，存放到
+  Configuration 的环境配置中。
+- DefaultSqlSession#selectOne 方法中完成 SQL 的执行和结果封装
+
+测试类如下：
+
+```java
+
+@Test
+public void test_SqlSessionFactory() throws IOException {
+  // 1. 从SqlSessionFactory中获取SqlSession
+  SqlSessionFactory sqlSessionFactory =
+          new SqlSessionFactoryBuilder().build(Resources.getResourceAsReader("mybatis-config.xml"));
+  SqlSession sqlSession = sqlSessionFactory.openSession();
+
+  // 2. 获取映射器对象
+  IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+
+  // 3. 测试验证
+  User user = userDao.queryUserInfoById(1L);
+  logger.info("测试结果：{}", JSON.toJSONString(user));
+}
+```
+
+测试流程：
+
+1. 创建库表
+2. 配置数据源
+3. 配置 Mapper
+4. 执行 SQL
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409020349928.png"/>
+
+### R
+
+真正的执行逻辑是在 `MapperProxy#invoke()` 中, 在创建映射器接口代理对象的时候，就会缓存对应的 MapperMethod 对象
+
+```java
+public class MapperProxy<T> implements InvocationHandler, Serializable {
+
+  //省略...
+
+  @Override
+  public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    // 如果是 Object 类
+    if (Object.class.equals(method.getDeclaringClass())) {
+      return method.invoke(this, args);
+    } else {
+      final MapperMethod mapperMethod = cachedMapperMethod(method);
+      return mapperMethod.execute(sqlSession, args);
+    }
+  }
+  // 省略...
+}
+```
+
+在 `MapperProxy#invoke()` 会去调用 `mapperMethod.execute(sqlSession, args)` 方法，从而去执行真正的 `selectOne()`
+
+```java
+  public Object execute(SqlSession sqlSession, Object[] args) {
+  Object result = null;
+  switch (command.getType()) {
+    case INSERT:
+      break;
+    case DELETE:
+      break;
+    case UPDATE:
+      break;
+    case SELECT:
+      result = sqlSession.selectOne(command.getName(), args);
+      break;
+    default:
+      throw new RuntimeException("Unknown execution method for: " + command.getName());
+  }
+  return result;
+}
+```
+
+- 创建 `PreparedStatement` 类
+- 设置参数
+- 执行查询 `preparedStatement.executeQuery()`
+- 封装结果，并返回
