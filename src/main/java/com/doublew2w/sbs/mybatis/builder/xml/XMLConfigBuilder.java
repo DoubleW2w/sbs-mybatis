@@ -88,6 +88,7 @@ public class XMLConfigBuilder extends BaseBuilder {
                 typeAliasRegistry
                     .resolveAlias(dataSourceElement.attributeValue("type"))
                     .newInstance();
+        // 注入数据源配置属性
         List<Element> propertyList = dataSourceElement.elements("property");
         Properties props = new Properties();
         for (Element property : propertyList) {

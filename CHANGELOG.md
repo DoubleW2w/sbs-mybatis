@@ -164,7 +164,7 @@ public void test_MapperProxyFactory() {
 
 > 代码分支：[03-mapper-xml-parse](https://github.com/DoubleW2w/sbs-mybatis/tree/03-mapper-xml-parse)
 
-## S
+### S
 
 在 MyBatis 的核心逻辑中，重要的一个逻辑就是为接口生成一个代理类，类中包含了对 Mapper XML 文件中的 SQL 信息进行解析和处理类型
 
@@ -172,14 +172,14 @@ public void test_MapperProxyFactory() {
 - 出参
 - 条件
 
-## T
+### T
 
 目标是完成 XML 文件的解析和使用。
 
 - 提供一个全局的配置类 Configuration，存放 XML 的解析内容。
 - 通过 IO 流读取 XML 配置文件，然后解析 XML 节点进行「SQL 解析」、「Mapper 注册」。
 
-## A
+### A
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409012241359.png"/>
 
@@ -210,9 +210,9 @@ public void test_MapperProxyFactory() {
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409012348732.png"/>
 
-## R
+### R
 
-### 建造者模式
+#### 建造者模式
 
 定义：一种「创建型设计模式」，使你能够分步骤创建复杂对象。 该模式允许你使用相同的创建代码生成不同类型和形式的对象。
 
@@ -414,3 +414,160 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
 - 设置参数
 - 执行查询 `preparedStatement.executeQuery()`
 - 封装结果，并返回
+
+
+
+##  数据源池化的实现
+
+> 代码分支: [05-pool-datasource](https://github.com/DoubleW2w/sbs-mybatis/tree/05-pool-datasource)
+
+
+### S
+
+MyBatis 有自己数据源实现，包括 UnpooledDataSource 和 PooledDataSource 的实现。对于创建成本高且高频使用的资源，需要将这些资源创建出来存放到一个「池子」中，需要时直接从「池子」中获取，使用完再进行使用，目的是有效提供资源的利用率。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409032232942.png"/>
+
+### T
+
+提供连接池中心，存放连接资源，并根据配置信息获取连接，包括活跃连接的最大数量和空闲连接的最大数据量。
+
+- 当外部从连接池获取链接时，如果链接已满则会进行循环等待。
+- 当关闭连接时，移除链接并标记连接状态。
+- 在配置数据源时，会强制关闭数据库所有连接。
+
+### A
+
+注册 池化 和 无池化类型
+
+```java
+  public Configuration() {
+    typeAliasRegistry.registerAlias("JDBC", JdbcTransactionFactory.class);
+    typeAliasRegistry.registerAlias("DRUID", DruidDataSourceFactory.class);
+    typeAliasRegistry.registerAlias("UNPOOLED", UnpooledDataSourceFactory.class);
+    typeAliasRegistry.registerAlias("POOLED", PooledDataSourceFactory.class);
+  }
+```
+
+建立对应的「数据源工厂类」和「数据源类型」，池化数据连接需要被放入池子进行管理，单独创建一个类 `PooledConnection` ，`PoolState` 负责管理池子状态，包括请求时间，等待时间，总的等待次数，失败连接次数等信息。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409032250095.png"/>
+
+池化数据源获取连接和关闭连接
+
+
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/Mybatis%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-05-%E6%95%B0%E6%8D%AE%E6%BA%90%E6%B1%A0%E5%8C%96%E6%8A%80%E6%9C%AF%E5%AE%9E%E7%8E%B0.drawio-1.png"/>
+
+
+
+无池化数据源获取连接
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/Mybatis%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-05-%E6%95%B0%E6%8D%AE%E6%BA%90%E6%B1%A0%E5%8C%96%E6%8A%80%E6%9C%AF%E5%AE%9E%E7%8E%B0.drawio-2.png"/>
+
+代码流程
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/Mybatis%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-05-%E6%95%B0%E6%8D%AE%E6%BA%90%E6%B1%A0%E5%8C%96%E6%8A%80%E6%9C%AF%E5%AE%9E%E7%8E%B0.drawio-3.png"/>
+
+
+
+测试类
+
+```java
+  @Test
+  public void test_PooledDataSource() throws Exception {
+    // 1. 从SqlSessionFactory中获取SqlSession
+    SqlSessionFactory sqlSessionFactory =
+        new SqlSessionFactoryBuilder().build(Resources.getResourceAsReader("mybatis-config.xml"));
+    SqlSession sqlSession = sqlSessionFactory.openSession();
+
+    // 2. 获取映射器对象
+    IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+
+    // 3. 测试验证
+    for (int i = 0; i < 10; i++) {
+      User user = userDao.queryUserInfoById(1L);
+      logger.info("测试结果：{}", JSON.toJSONString(user));
+    }
+  }
+```
+
+```xml
+<dataSource type="POOLED"></dataSource>
+<dataSource type="UNPOOLED"></dataSource>
+```
+
+### R
+
+这种池化思想可以理解为享元模式
+
+#### 享元模式
+
+一种结构型设计模式，通过共享多个对象「相同的内部状态」，减少内存使用，来支持大量细粒度的对象，提高访问效率。
+
+涉及角色：
+
+- 享元工厂（Flyweight Factory）：管理和创建享元对象，通常实现了对象池来存储和管理具体享元对象。工厂类确保返回现有的享元对象或者创建新的享元对象。
+- 享元对象（Flyweight）：包含内部状态和外部状态。内部状态是享元对象共享的，外部状态，每个享元对象是不同的。游戏中的子弹对象，每个子弹有相同的形状和大小，但位置和速度是不同的。
+
+```java
+// 享元接口
+public interface Bullet {
+    void fire(int x, int y);  // 外部状态：位置
+}
+
+// 具体享元类
+public class ConcreteBullet implements Bullet {
+    private String shape;  // 内部状态：形状
+
+    public ConcreteBullet(String shape) {
+        this.shape = shape;
+    }
+
+    @Override
+    public void fire(int x, int y) {
+        System.out.println("Firing a " + shape + " bullet at (" + x + ", " + y + ")");
+    }
+}
+```
+
+```java
+// 享元工厂
+public class BulletFactory {
+    private Map<String, Bullet> bullets = new HashMap<>();
+
+    public Bullet getBullet(String shape) {
+        Bullet bullet = bullets.get(shape);
+        if (bullet == null) {
+            bullet = new ConcreteBullet(shape);
+            bullets.put(shape, bullet);
+        }
+        return bullet;
+    }
+}
+```
+
+```java
+public class Client {
+    public static void main(String[] args) {
+        BulletFactory factory = new BulletFactory();
+
+        Bullet bullet1 = factory.getBullet("small");  // 创建一个小型子弹对象
+        bullet1.fire(10, 20);
+
+        Bullet bullet2 = factory.getBullet("small");  // 从工厂获取同一个小型子弹对象
+        bullet2.fire(15, 25);
+
+        Bullet bullet3 = factory.getBullet("large");  // 创建一个大型子弹对象
+        bullet3.fire(30, 40);
+    }
+}
+```
+
+在 Java 中 利用缓存来加速大量小对象的访问时间。
+
+- `java.lang.Integer#valueOf(int)`
+
+- `java.lang.Boolean#valueOf(boolean)`
+
+  

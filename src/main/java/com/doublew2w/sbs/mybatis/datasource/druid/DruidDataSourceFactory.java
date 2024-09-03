@@ -1,9 +1,11 @@
-package com.doublew2w.sbs.mybatis.datasource;
+package com.doublew2w.sbs.mybatis.datasource.druid;
 
 import com.alibaba.druid.pool.DruidDataSource;
-
-import javax.sql.DataSource;
+import com.doublew2w.sbs.mybatis.datasource.DataSourceFactory;
 import java.util.Properties;
+import javax.sql.DataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Druid 数据源工厂
@@ -13,6 +15,7 @@ import java.util.Properties;
  * @project: sbs-mybatis
  */
 public class DruidDataSourceFactory implements DataSourceFactory {
+  private final Logger logger = LoggerFactory.getLogger(DruidDataSourceFactory.class);
   private Properties props;
 
   @Override
@@ -29,7 +32,7 @@ public class DruidDataSourceFactory implements DataSourceFactory {
       dataSource.setPassword(props.getProperty("password"));
       return dataSource;
     } catch (Exception e) {
-      e.printStackTrace();
+      logger.error(e.getMessage(), e);
     }
     return null;
   }
