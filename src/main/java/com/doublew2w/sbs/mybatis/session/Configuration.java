@@ -4,8 +4,16 @@ import com.doublew2w.sbs.mybatis.binding.MapperRegistry;
 import com.doublew2w.sbs.mybatis.datasource.druid.DruidDataSourceFactory;
 import com.doublew2w.sbs.mybatis.datasource.pooled.PooledDataSourceFactory;
 import com.doublew2w.sbs.mybatis.datasource.unpooled.UnpooledDataSourceFactory;
+import com.doublew2w.sbs.mybatis.executor.Executor;
+import com.doublew2w.sbs.mybatis.executor.SimpleExecutor;
+import com.doublew2w.sbs.mybatis.executor.resultset.DefaultResultSetHandler;
+import com.doublew2w.sbs.mybatis.executor.resultset.ResultSetHandler;
+import com.doublew2w.sbs.mybatis.executor.statement.PreparedStatementHandler;
+import com.doublew2w.sbs.mybatis.executor.statement.StatementHandler;
+import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.Environment;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
+import com.doublew2w.sbs.mybatis.transaction.Transaction;
 import com.doublew2w.sbs.mybatis.transaction.jdbc.JdbcTransactionFactory;
 import com.doublew2w.sbs.mybatis.type.TypeAliasRegistry;
 import java.util.HashMap;
@@ -72,5 +80,26 @@ public class Configuration {
 
   public Environment getEnvironment() {
     return environment;
+  }
+
+  public ResultSetHandler newResultSetHandler(
+      Executor executor, MappedStatement mappedStatement, BoundSql boundSql) {
+    return new DefaultResultSetHandler(boundSql);
+  }
+
+  /** 生产执行器 */
+  public Executor newExecutor() {
+    return new SimpleExecutor(this);
+  }
+
+  /** 创建语句处理器 */
+  public StatementHandler newStatementHandler(
+      Executor executor,
+      MappedStatement mappedStatement,
+      Object parameter,
+      ResultHandler resultHandler,
+      BoundSql boundSql) {
+    return new PreparedStatementHandler(
+        executor, mappedStatement, parameter, resultHandler, boundSql);
   }
 }

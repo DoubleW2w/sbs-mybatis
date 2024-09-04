@@ -570,4 +570,105 @@ public class Client {
 
 - `java.lang.Boolean#valueOf(boolean)`
 
-  
+## SQL 执行器的定义和使用
+
+> 代码分支：[06-define-sql-executor-use](https://github.com/DoubleW2w/sbs-mybatis/tree/06-define-sql-executor-use)
+
+### S
+
+在 `SqlSession#selectOne()`，并把执行的查询逻辑放进里面，为了解耦 `SqlSession`，我们需要提供新的功能 Executor 来替代这部分的代码处理
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409040026081.png"/>
+
+### A
+
+- 提取出执行器的接口，定义出执行方法、事务获取和相应提交、回滚、关闭的定义。
+- 执行器定义成抽象类，对过程内容进行模板模式的过程包装，具体过程交由子类实现。
+- 对 SQL 的处理分为：简单处理和预处理，预处理中包括准备语句、参数化传递、执行查询，以及最后的结果封装和返回。
+
+### T
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409041346992.png"/>
+
+变成
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409041346880.png"/>
+
+定义一个执行器 `Executor` 接口，使用执行器基类`BaseExecutor`定义模板流程，具体的查询实现交给子类
+
+```java
+public interface Executor {
+  // todo:暂时无用
+  ResultHandler NO_RESULT_HANDLER = null;
+
+  /** 查询 */
+  <E> List<E> query(
+      MappedStatement ms, Object parameter, ResultHandler resultHandler, BoundSql boundSql);
+}
+
+
+@Slf4j
+public abstract class BaseExecutor implements Executor {
+
+  protected Configuration configuration;
+  protected Executor wrapper;
+
+  private boolean closed;
+
+  protected BaseExecutor(Configuration configuration) {
+    this.configuration = configuration;
+    this.wrapper = this;
+  }
+
+  @Override
+  public <E> List<E> query(
+      MappedStatement ms, Object parameter, ResultHandler resultHandler, BoundSql boundSql) {
+    if (closed) {
+      throw new RuntimeException("Executor was closed.");
+    }
+    log.info("执行器执行查询");
+    return doQuery(ms, parameter, resultHandler, boundSql);
+  }
+
+  protected abstract <E> List<E> doQuery(
+      MappedStatement ms, Object parameter, ResultHandler resultHandler, BoundSql boundSql);
+}
+```
+
+```java
+@Slf4j
+public class SimpleExecutor extends BaseExecutor {
+  public SimpleExecutor(Configuration configuration) {
+    super(configuration);
+  }
+
+  @Override
+  protected <E> List<E> doQuery(
+      MappedStatement ms, Object parameter, ResultHandler resultHandler, BoundSql boundSql) {
+    try {
+      Configuration configuration = ms.getConfiguration();
+      StatementHandler handler = configuration.newStatementHandler(this, ms, parameter, resultHandler, boundSql);
+      Environment environment = configuration.getEnvironment();
+      Connection connection = environment.getDataSource().getConnection();
+      Statement stmt = handler.prepare(connection);
+      handler.parameterize(stmt);
+      return handler.query(stmt, resultHandler);
+    } catch (SQLException e) {
+      log.error(e.getMessage(), e);
+      return null;
+    }
+  }
+}
+```
+
+- `newStatementHandler()` 负责实例化语句处理器，方便后续对语句的处理
+- `prepare()` 准备语句:简单语句和预处理语句 
+- `parameterize` 参数化语句,负责完成语句参数的设置
+- `query() `执行查询，执行SQL语句执行
+- `ResultSetHandler` 结果集处理，通过调用 set 方法来设置结果
+
+### R
+
+#### 代码结构
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409041405364.png"/>
