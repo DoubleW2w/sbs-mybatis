@@ -672,3 +672,148 @@ public class SimpleExecutor extends BaseExecutor {
 #### 代码结构
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409041405364.png"/>
+
+## MetaObject元对象与反射的运用
+
+> 代码分支：[07-meta-object-reflection](https://github.com/DoubleW2w/sbs-mybatis/tree/07-meta-object-reflection)
+
+### S
+
+在 `DataSourceFacotory` 中获取数据源存在硬编码，约定的配置比如 username,password 等是可以使用硬编码，但如果要进行扩展就很难知道其他的属性配置。
+
+### T
+
+实现元对象反射工具类，可以完成一个对象的属性的反射填充，提取出统一的设置和获取属性值的操作，并封装成一个工具包。
+
+### A
+
+#### 工程目录
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409061555241.png"/>
+
+- reflection.factory: 负责创建需要的对象，负责进行实例化
+- reflection.invoker: 提供一个`Invoker`接口，将对象类中的属性值获取和设置可以分为 Field 字段的 get/set(「字段setter和getter」`GetFieldInvoker`和`SetFieldInvoker`),还有普通的 Method 的调用(「方法调用器」`MethodInvoker`)。
+- reflection.property: 完成属性名称的分解和属性名称的转换，可以做一些方法转换属性名称。
+- reflection.wrapper: 对象包装器，定义了标准的get/set方法处理以及属性操作等方法，进一步反射调用处理。
+
+  <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409061607600.png"/>
+
+#### 反射器Reflector
+
+针对一个类的信息进行解耦，完成属性与方法之间的映射，并做缓存。
+
+```java
+public class Reflector {
+
+  private static boolean classCacheEnabled = true;
+
+  private static final String[] EMPTY_STRING_ARRAY = new String[0];
+  // 线程安全的缓存
+  private static final Map<Class<?>, Reflector> REFLECTOR_MAP = new ConcurrentHashMap<>();
+
+  private Class<?> type;
+  // get 属性列表
+  private String[] readablePropertyNames = EMPTY_STRING_ARRAY;
+  // set 属性列表
+  private String[] writeablePropertyNames = EMPTY_STRING_ARRAY;
+  // set 方法列表
+  private Map<String, Invoker> setMethods = new HashMap<>();
+  // get 方法列表
+  private Map<String, Invoker> getMethods = new HashMap<>();
+  // set 类型列表
+  private Map<String, Class<?>> setTypes = new HashMap<>();
+  // get 类型列表
+  private Map<String, Class<?>> getTypes = new HashMap<>();
+  // 构造函数
+  private Constructor<?> defaultConstructor;
+
+  private Map<String, String> caseInsensitivePropertyMap = new HashMap<String, String>();
+
+  public Reflector(Class<?> clazz) {
+    this.type = clazz;
+    // 加入构造函数
+    addDefaultConstructor(clazz);
+    // 加入 getter
+    addGetMethods(clazz);
+    // 加入 setter
+    addSetMethods(clazz);
+    // 加入字段
+    addFields(clazz);
+    readablePropertyNames = getMethods.keySet().toArray(new String[0]);
+    writeablePropertyNames = setMethods.keySet().toArray(new String[0]);
+    for (String propName : readablePropertyNames) {
+      caseInsensitivePropertyMap.put(propName.toUpperCase(Locale.ENGLISH), propName);
+    }
+    for (String propName : writeablePropertyNames) {
+      caseInsensitivePropertyMap.put(propName.toUpperCase(Locale.ENGLISH), propName);
+    }
+  }
+  //....省略
+}
+```
+每一个类都有对应的一个反射器，当通过 Reflector 的构造函数创建出来时，会进行解析clazz信息。
+
+#### 元类 MetaClass
+
+MetaClass 依赖于 Reflector，不仅有基础的对象拆解功能，还能获取到 get/set 的Invoker方法。
+```java
+public class MetaClass {
+
+  private final Reflector reflector;
+
+  private MetaClass(Class<?> type) {
+    this.reflector = Reflector.forClass(type);
+  }
+
+  public static MetaClass forClass(Class<?> type) {
+    return new MetaClass(type);
+  }
+  //...省略
+  /**
+   * 获取指定属性名称对应的元类（MetaClass）。
+   *
+   * @param name 属性名称
+   * @return 属性对应的元类
+   */
+  public MetaClass metaClassForProperty(String name) {
+    Class<?> propType = reflector.getGetterType(name);
+    return MetaClass.forClass(propType);
+  }
+
+  /**
+   * 根据名称查找属性
+   *
+   * @param name 属性名称
+   * @return 如果找到了与给定名称对应的属性值，则返回该值的字符串表示；否则返回null
+   */
+  public String findProperty(String name) {
+    StringBuilder prop = buildProperty(name, new StringBuilder());
+    return prop.length() > 0 ? prop.toString() : null;
+  }
+
+  //... 省略
+
+  public boolean hasSetter(String name) {}
+
+  public boolean hasGetter(String name) {}
+
+  public Invoker getGetInvoker(String name) {}
+
+  public Invoker getSetInvoker(String name) {}
+  // ...省略
+}
+```
+MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个原对象，包装出一个元类。
+
+#### 元对象 MetaObject
+将元对象 MetaObject理解成一个反射服务，它简化了对对象属性的读取、修改和访问操作。
+- 获取属性值：getValue(String name)：根据属性名获取对象的属性值。支持嵌套属性的访问，例如 user.address.city。
+- 设置属性值：setValue(String name, Object value)：根据属性名设置对象的属性值，支持嵌套属性的修改。
+- 检测属性的可读写性：判断是否有getter和setter
+- 对象的包装：MetaObject 可以通过 ObjectWrapper 包装对象，提供对对象的统一操作接口。
+
+### R
+
+本次反射拆了几个功能：「属性」、「调用」、「实例化」、「对象包装」。 将这几个功能合起来变成 `MetaObject`、`MetaClass`。
+
+在实现上基本采用的模式是 一个顶层接口定义规范，基类实现顶层接口可以完成默认实现，或者提供模板流程，具体的规范实现交给子类。
+

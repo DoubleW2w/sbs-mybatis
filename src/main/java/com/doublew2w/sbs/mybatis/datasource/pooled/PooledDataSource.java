@@ -78,7 +78,6 @@ public class PooledDataSource implements DataSource {
    * <p>若空闲连接数量充足，则关闭当前接连，并标记为无效
    *
    * @param connection 连接
-   * @throws SQLException
    */
   protected void pushConnection(PooledConnection connection) throws SQLException {
     synchronized (state) {
