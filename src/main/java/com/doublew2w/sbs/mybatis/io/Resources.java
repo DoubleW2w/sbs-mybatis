@@ -24,7 +24,7 @@ public class Resources {
    * @param resource 需要查找的资源
    * @return The resource 流形式的资源
    */
-  private static InputStream getResourceAsStream(String resource) throws IOException {
+  public static InputStream getResourceAsStream(String resource) throws IOException {
     ClassLoader[] classLoaders = getClassLoaders();
     for (ClassLoader classLoader : classLoaders) {
       InputStream inputStream = classLoader.getResourceAsStream(resource);

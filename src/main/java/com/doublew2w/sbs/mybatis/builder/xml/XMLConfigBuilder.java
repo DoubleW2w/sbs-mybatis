@@ -9,6 +9,8 @@ import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.mapping.SqlCommandType;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.transaction.TransactionFactory;
+
+import java.io.InputStream;
 import java.io.Reader;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -118,52 +120,12 @@ public class XMLConfigBuilder extends BaseBuilder {
   private void mapperElement(Element mappers) throws Exception {
     List<Element> mapperList = mappers.elements("mapper");
     for (Element e : mapperList) {
-      // resource属性值
       String resource = e.attributeValue("resource");
-      // resource 输入流
-      Reader reader = Resources.getResourceAsReader(resource);
-      SAXReader saxReader = new SAXReader();
-      Document document = saxReader.read(new InputSource(reader));
-      Element root = document.getRootElement();
-      // 命名空间
-      String namespace = root.attributeValue("namespace");
-      if (namespace == null || namespace.isEmpty()) {
-        throw new RuntimeException("Mapper's namespace cannot be empty");
-      }
-      // SELECT
-      List<Element> selectNodes = root.elements("select");
-      for (Element node : selectNodes) {
-        String id = node.attributeValue("id");
-        String parameterType = node.attributeValue("parameterType");
-        String resultType = node.attributeValue("resultType");
-        String sql = node.getText();
+      InputStream inputStream = Resources.getResourceAsStream(resource);
 
-        // ? 匹配
-        Map<Integer, String> parameter = new HashMap<>();
-        // 获取 #{} 里面的内容 1. (#{},#{}) 2. #{}
-        Pattern pattern = Pattern.compile("(#\\{(.*?)})");
-        Matcher matcher = pattern.matcher(sql);
-        for (int i = 1; matcher.find(); i++) {
-          String g1 = matcher.group(1);
-          String g2 = matcher.group(2);
-          parameter.put(i, g2);
-          sql = sql.replace(g1, "?");
-        }
-
-        String msId = namespace + "." + id;
-        String nodeName = node.getName();
-        SqlCommandType sqlCommandType =
-            SqlCommandType.valueOf(nodeName.toUpperCase(Locale.ENGLISH));
-
-        BoundSql boundSql = new BoundSql(sql, parameter, parameterType, resultType);
-        MappedStatement mappedStatement =
-            new MappedStatement.Builder(configuration, msId, sqlCommandType, boundSql).build();
-        // 添加解析 SQL
-        configuration.addMappedStatement(mappedStatement);
-      }
-
-      // 注册Mapper映射器
-      configuration.addMapper(Resources.classForName(namespace));
+      // 在for循环里每个mapper都重新new一个XMLMapperBuilder，来解析
+      XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource);
+      mapperParser.parse();
     }
   }
 }

@@ -2,6 +2,7 @@ package com.doublew2w.sbs.mybatis.builder;
 
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.type.TypeAliasRegistry;
+import com.doublew2w.sbs.mybatis.type.TypeHandlerRegistry;
 import lombok.Getter;
 
 /**
@@ -12,15 +13,28 @@ import lombok.Getter;
  * @project: sbs-mybatis
  */
 public abstract class BaseBuilder {
+  /** 配置类 */
   protected final Configuration configuration;
+  /**
+   * 类型别名注册机
+   */
   protected final TypeAliasRegistry typeAliasRegistry;
+  /**
+   * 类型处理器注册机
+   */
+  protected final TypeHandlerRegistry typeHandlerRegistry;
 
   public BaseBuilder(Configuration configuration) {
     this.configuration = configuration;
     this.typeAliasRegistry = this.configuration.getTypeAliasRegistry();
+    this.typeHandlerRegistry = this.configuration.getTypeHandlerRegistry();
   }
 
   public Configuration getConfiguration() {
     return configuration;
+  }
+
+  protected Class<?> resolveAlias(String alias) {
+    return typeAliasRegistry.resolveAlias(alias);
   }
 }

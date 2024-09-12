@@ -1,10 +1,13 @@
 package com.doublew2w.sbs.mybatis.executor.resultset;
 
+import com.doublew2w.sbs.mybatis.executor.Executor;
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import java.lang.reflect.Method;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -18,21 +21,17 @@ import lombok.extern.slf4j.Slf4j;
 public class DefaultResultSetHandler implements ResultSetHandler {
 
   private final BoundSql boundSql;
+  private final MappedStatement mappedStatement;
 
-  public DefaultResultSetHandler(BoundSql boundSql) {
+  public DefaultResultSetHandler(Executor executor, MappedStatement mappedStatement, BoundSql boundSql) {
     this.boundSql = boundSql;
+    this.mappedStatement = mappedStatement;
   }
 
   @Override
   public <E> List<E> handleResultSets(Statement stmt) throws SQLException {
     ResultSet resultSet = stmt.getResultSet();
-    try {
-      log.info("结果处理器处理结果集");
-      return resultSet2Obj(resultSet, Class.forName(boundSql.getResultType()));
-    } catch (ClassNotFoundException e) {
-      log.error(e.getMessage(), e);
-      return null;
-    }
+    return resultSet2Obj(resultSet, mappedStatement.getResultType());
   }
 
   private <T> List<T> resultSet2Obj(ResultSet resultSet, Class<?> clazz) {
@@ -59,7 +58,7 @@ public class DefaultResultSetHandler implements ResultSetHandler {
         list.add(obj);
       }
     } catch (Exception e) {
-      log.error(e.getMessage(), e);
+      e.printStackTrace();
     }
     return list;
   }

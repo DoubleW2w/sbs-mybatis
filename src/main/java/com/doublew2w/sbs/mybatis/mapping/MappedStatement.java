@@ -22,8 +22,11 @@ public class MappedStatement {
   /** SQL指令类型 */
   private SqlCommandType sqlCommandType;
 
-  /** 绑定的SQL语句 */
-  private BoundSql boundSql;
+  /** SQL源码 */
+  private SqlSource sqlSource;
+
+  /** 结果类型 */
+  private Class<?> resultType;
 
   MappedStatement() {}
 
@@ -33,11 +36,16 @@ public class MappedStatement {
     private MappedStatement mappedStatement = new MappedStatement();
 
     public Builder(
-        Configuration configuration, String id, SqlCommandType sqlCommandType, BoundSql boundSql) {
+        Configuration configuration,
+        String id,
+        SqlCommandType sqlCommandType,
+        SqlSource sqlSource,
+        Class<?> resultType) {
       mappedStatement.configuration = configuration;
       mappedStatement.id = id;
       mappedStatement.sqlCommandType = sqlCommandType;
-      mappedStatement.boundSql = boundSql;
+      mappedStatement.sqlSource = sqlSource;
+      mappedStatement.resultType = resultType;
     }
 
     public MappedStatement build() {
@@ -45,25 +53,5 @@ public class MappedStatement {
       assert mappedStatement.id != null;
       return mappedStatement;
     }
-
-    public String id() {
-      return mappedStatement.id;
-    }
-  }
-
-  public Configuration getConfiguration() {
-    return configuration;
-  }
-
-  public String getId() {
-    return id;
-  }
-
-  public SqlCommandType getSqlCommandType() {
-    return sqlCommandType;
-  }
-
-  public BoundSql getBoundSql() {
-    return boundSql;
   }
 }

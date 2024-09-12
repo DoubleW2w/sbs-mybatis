@@ -35,7 +35,6 @@ public abstract class BaseExecutor implements Executor {
     if (closed) {
       throw new RuntimeException("Executor was closed.");
     }
-    log.info("执行器执行查询");
     return doQuery(ms, parameter, resultHandler, boundSql);
   }
 
