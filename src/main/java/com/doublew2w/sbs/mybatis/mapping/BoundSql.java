@@ -1,11 +1,10 @@
 package com.doublew2w.sbs.mybatis.mapping;
 
+import com.doublew2w.sbs.mybatis.reflection.MetaObject;
+import com.doublew2w.sbs.mybatis.session.Configuration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.doublew2w.sbs.mybatis.reflection.MetaObject;
-import com.doublew2w.sbs.mybatis.session.Configuration;
 import lombok.Getter;
 
 /**
@@ -17,10 +16,23 @@ import lombok.Getter;
  */
 @Getter
 public class BoundSql {
+  /** sql语句 */
   private String sql;
+  /**
+   * 参数映射
+   */
   private List<ParameterMapping> parameterMappings;
+  /**
+   * 参数对象
+   */
   private Object parameterObject;
+  /**
+   * 附加参数
+   */
   private Map<String, Object> additionalParameters;
+  /**
+   * 元对象
+   */
   private MetaObject metaParameters;
 
   public BoundSql(

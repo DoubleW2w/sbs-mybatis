@@ -1,5 +1,8 @@
 package com.doublew2w.sbs.mybatis.scripting;
 
+import com.doublew2w.sbs.mybatis.executor.parameter.ParameterHandler;
+import com.doublew2w.sbs.mybatis.mapping.BoundSql;
+import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.mapping.SqlSource;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import org.dom4j.Element;
@@ -16,5 +19,10 @@ import org.dom4j.Element;
  * @project: sbs-mybatis
  */
 public interface LanguageDriver {
+  /** 创建SQL源码 */
   SqlSource createSqlSource(Configuration configuration, Element script, Class<?> parameterType);
+
+  /** 创建参数处理器 */
+  ParameterHandler createParameterHandler(
+      MappedStatement ms, Object parameterObject, BoundSql boundSql);
 }

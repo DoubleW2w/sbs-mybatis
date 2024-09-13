@@ -853,7 +853,47 @@ MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个�
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/Mybatis%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-08-%E7%BB%86%E5%8C%96xml%E8%AF%AD%E5%8F%A5%E6%9E%84%E5%BB%BA%E5%99%A8.drawio.svg"/>
 
-在解析SQL源码的处理方式上，
+在解析 SQL 源码的处理方式上，
 
 ### R
 
+
+
+## 使用策略模式，调用参数处理器
+
+本节内容是解决下面的参数处理硬编码问题，应该在解析 XML 文件的时候就已经确定好类型，调用「某个方法」就可以完成参数处理的操作。
+
+```java
+  public void parameterize(Statement statement) throws SQLException {
+    PreparedStatement ps = (PreparedStatement) statement;
+    ps.setLong(1, Long.parseLong(((Object[]) parameterObject)[0].toString()));
+  }
+```
+
+
+
+策略模式允许我们将参数处理的逻辑封装在不同的策略类中，并在运行时动态选择合适的策略进行参数设置。
+
+1. 定义参数处理策略接口 `ParameterHandler`
+2. 实现不同的参数处理策略 
+3. 修改 `PreparedStatementHandler` 使用策略
+4. 配置策略
+
+但是参数的相关信息，比如对应的「jdbcType」、「javaType」等信息存放在哪里呢，这个时候就在 `ParameterMapping` 类上。所以 `ParameterHandler` 应该会依赖 `ParameterMapping`；
+
+
+
+
+
+类型处理
+
+- TypeHandler
+- BaseTypeHandler
+- 继承 BaseTypeHandler 的各种实现
+
+参数设置
+
+- ParameterMapping
+- ParameterMappingTokenHandler
+
+参数使用

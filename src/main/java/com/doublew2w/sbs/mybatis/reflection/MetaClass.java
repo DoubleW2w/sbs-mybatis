@@ -4,7 +4,6 @@ import com.doublew2w.sbs.mybatis.reflection.invoker.GetFieldInvoker;
 import com.doublew2w.sbs.mybatis.reflection.invoker.Invoker;
 import com.doublew2w.sbs.mybatis.reflection.invoker.MethodInvoker;
 import com.doublew2w.sbs.mybatis.reflection.property.PropertyTokenizer;
-
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -12,7 +11,7 @@ import java.lang.reflect.Type;
 import java.util.Collection;
 
 /**
- * 元类
+ * 元类：提供了对 Java 类的元数据的访问。这包括类的属性、方法、构造函数等信息。
  *
  * @author: DoubleW2w
  * @date: 2024/9/5 3:28

@@ -1,17 +1,13 @@
 package com.doublew2w.sbs.mybatis.session.defaults;
 
+import com.alibaba.fastjson2.JSON;
 import com.doublew2w.sbs.mybatis.executor.Executor;
-import com.doublew2w.sbs.mybatis.mapping.BoundSql;
-import com.doublew2w.sbs.mybatis.mapping.Environment;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.session.SqlSession;
-import lombok.extern.slf4j.Slf4j;
-
-import java.lang.reflect.Method;
 import java.sql.*;
-import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author: DoubleW2w
@@ -35,6 +31,7 @@ public class DefaultSqlSession implements SqlSession {
 
   @Override
   public <T> T selectOne(String statement, Object parameter) {
+    log.info("执行查询 statement：{} parameter：{}", statement, JSON.toJSONString(parameter));
     MappedStatement ms = configuration.getMappedStatement(statement);
     List<T> list = executor.query(ms, parameter, Executor.NO_RESULT_HANDLER, ms.getSqlSource().getBoundSql(parameter));
     return list.get(0);

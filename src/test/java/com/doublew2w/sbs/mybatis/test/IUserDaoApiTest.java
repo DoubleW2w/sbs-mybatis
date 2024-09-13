@@ -7,6 +7,7 @@ import com.doublew2w.sbs.mybatis.test.dao.IUserDao;
 import com.doublew2w.sbs.mybatis.test.po.User;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,16 @@ import org.slf4j.LoggerFactory;
  */
 public class IUserDaoApiTest {
   private final Logger logger = LoggerFactory.getLogger(IUserDaoApiTest.class);
+
+  SqlSession sqlSession;
+
+  @BeforeEach
+  public void init() throws IOException {
+    // 1. 从SqlSessionFactory中获取SqlSession
+    SqlSessionFactory sqlSessionFactory =
+        new SqlSessionFactoryBuilder().build(Resources.getResourceAsReader("mybatis-config.xml"));
+    sqlSession = sqlSessionFactory.openSession();
+  }
 
   @Test
   public void test_proxy_class() {
@@ -76,5 +87,22 @@ public class IUserDaoApiTest {
     // 3. 测试验证
     User user = userDao.queryUserInfoById(1L);
     logger.info("测试结果：{}", JSON.toJSONString(user));
+  }
+
+  @Test
+  public void test_branch09() throws Exception {
+    // 1. 获取映射器对象
+    IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+
+    // 2. 测试验证：基本参数
+    User user = userDao.queryUserInfoById(1L);
+    logger.info("测试结果：{}", JSON.toJSONString(user));
+
+    // 1. 获取映射器对象
+    IUserDao userDao2 = sqlSession.getMapper(IUserDao.class);
+
+    // 2. 测试验证：对象参数
+    User user2 = userDao2.queryUserInfo(new User(1L, "10001"));
+    logger.info("测试结果：{}", JSON.toJSONString(user2));
   }
 }

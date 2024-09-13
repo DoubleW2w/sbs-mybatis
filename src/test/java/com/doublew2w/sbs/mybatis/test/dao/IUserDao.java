@@ -10,7 +10,8 @@ import com.doublew2w.sbs.mybatis.test.po.User;
 public interface IUserDao {
   String queryUserName(String uId);
 
-  Integer queryUserAge(String uId);
+  User queryUserInfo(User req);
 
-  User queryUserInfoById(Long uId);
+  User queryUserInfoById(Long id);
+
 }

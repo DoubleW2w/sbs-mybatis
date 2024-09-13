@@ -5,12 +5,13 @@ import com.doublew2w.sbs.mybatis.mapping.SqlSource;
 import com.doublew2w.sbs.mybatis.mapping.StaticSqlSource;
 import com.doublew2w.sbs.mybatis.parsing.GenericTokenParser;
 import com.doublew2w.sbs.mybatis.parsing.TokenHandler;
+import com.doublew2w.sbs.mybatis.reflection.MetaClass;
 import com.doublew2w.sbs.mybatis.reflection.MetaObject;
 import com.doublew2w.sbs.mybatis.session.Configuration;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * SQL 源码构建器
@@ -23,6 +24,7 @@ import java.util.Map;
  * @date: 2024/9/13 3:09
  * @project: sbs-mybatis
  */
+@Slf4j
 public class SqlSourceBuilder extends BaseBuilder {
   private static final String parameterProperties =
       "javaType,jdbcType,mode,numericScale,resultMap,typeHandler,jdbcTypeName";
@@ -71,10 +73,25 @@ public class SqlSourceBuilder extends BaseBuilder {
       // 先解析参数映射,就是转化成一个 HashMap | #{favouriteSection,jdbcType=VARCHAR}
       Map<String, String> propertiesMap = new ParameterExpression(content);
       String property = propertiesMap.get("property");
-      Class<?> propertyType = parameterType;
+      // 类型处理注册机判断，不存在就创建一个元素，否则就返回Object类
+      Class<?> propertyType;
+      if (typeHandlerRegistry.hasTypeHandler(parameterType)) {
+        propertyType = parameterType;
+      } else if (property != null) {
+        MetaClass metaClass = MetaClass.forClass(parameterType);
+        if (metaClass.hasGetter(property)) {
+          propertyType = metaClass.getGetterType(property);
+        } else {
+          propertyType = Object.class;
+        }
+      } else {
+        propertyType = Object.class;
+      }
+      log.info("构建参数映射 property：{} propertyType：{}", property, propertyType);
       ParameterMapping.Builder builder =
           new ParameterMapping.Builder(configuration, property, propertyType);
       return builder.build();
     }
   }
+
 }

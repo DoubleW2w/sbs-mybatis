@@ -2,6 +2,8 @@ package com.doublew2w.sbs.mybatis.mapping;
 
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.type.JdbcType;
+import com.doublew2w.sbs.mybatis.type.TypeHandler;
+import com.doublew2w.sbs.mybatis.type.TypeHandlerRegistry;
 import lombok.Getter;
 
 /**
@@ -21,14 +23,20 @@ import lombok.Getter;
  */
 @Getter
 public class ParameterMapping {
+  /** 配置类 */
   private Configuration configuration;
 
-  // property
+  /** property */
   private String property;
-  // javaType = int
+
+  /** javaType = int */
   private Class<?> javaType = Object.class;
-  // jdbcType=NUMERIC
+
+  /** jdbcType=NUMERIC */
   private JdbcType jdbcType;
+
+  /** 类型处理器 */
+  private TypeHandler<?> typeHandler;
 
   private ParameterMapping() {}
 
@@ -53,6 +61,13 @@ public class ParameterMapping {
     }
 
     public ParameterMapping build() {
+      if (parameterMapping.typeHandler == null && parameterMapping.javaType != null) {
+        Configuration configuration = parameterMapping.configuration;
+        TypeHandlerRegistry typeHandlerRegistry = configuration.getTypeHandlerRegistry();
+        parameterMapping.typeHandler =
+            typeHandlerRegistry.getTypeHandler(
+                parameterMapping.javaType, parameterMapping.jdbcType);
+      }
       return parameterMapping;
     }
   }

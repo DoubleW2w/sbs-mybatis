@@ -3,13 +3,12 @@ package com.doublew2w.sbs.mybatis.reflection;
 import com.doublew2w.sbs.mybatis.reflection.factory.ObjectFactory;
 import com.doublew2w.sbs.mybatis.reflection.property.PropertyTokenizer;
 import com.doublew2w.sbs.mybatis.reflection.wrapper.*;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 元对象
+ * 元对象封装了反射操作：提供了一种统一的方式来访问和修改 Java 对象的属性
  *
  * @author: DoubleW2w
  * @date: 2024/9/5 3:15

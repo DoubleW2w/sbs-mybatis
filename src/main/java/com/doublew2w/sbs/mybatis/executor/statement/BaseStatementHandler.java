@@ -1,6 +1,7 @@
 package com.doublew2w.sbs.mybatis.executor.statement;
 
 import com.doublew2w.sbs.mybatis.executor.Executor;
+import com.doublew2w.sbs.mybatis.executor.parameter.ParameterHandler;
 import com.doublew2w.sbs.mybatis.executor.resultset.ResultSetHandler;
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
@@ -18,12 +19,25 @@ import java.sql.Statement;
  * @project: sbs-mybatis
  */
 public abstract class BaseStatementHandler implements StatementHandler {
+  /** 配置类 */
   protected final Configuration configuration;
+
+  /** 结果集处理器 */
   protected final ResultSetHandler resultSetHandler;
 
+  /** 参数处理器 */
+  protected final ParameterHandler parameterHandler;
+
+  /** 执行器 */
   protected final Executor executor;
+
+  /** 映射语句 */
   protected final MappedStatement mappedStatement;
+
+  /** 参数对象 */
   protected final Object parameterObject;
+
+  /** 绑定的SQL对象 */
   protected BoundSql boundSql;
 
   public BaseStatementHandler(
@@ -38,6 +52,7 @@ public abstract class BaseStatementHandler implements StatementHandler {
     this.boundSql = boundSql;
 
     this.parameterObject = parameterObject;
+    this.parameterHandler = configuration.newParameterHandler(mappedStatement, parameterObject, boundSql);
     this.resultSetHandler = configuration.newResultSetHandler(executor, mappedStatement, boundSql);
   }
 

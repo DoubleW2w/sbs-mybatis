@@ -1,5 +1,6 @@
 package com.doublew2w.sbs.mybatis.mapping;
 
+import com.doublew2w.sbs.mybatis.scripting.LanguageDriver;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import lombok.Getter;
 import lombok.Setter;
@@ -28,6 +29,9 @@ public class MappedStatement {
   /** 结果类型 */
   private Class<?> resultType;
 
+  /** 脚本语言驱动器 */
+  private LanguageDriver lang;
+
   MappedStatement() {}
 
   /** 建造者 */
@@ -46,6 +50,7 @@ public class MappedStatement {
       mappedStatement.sqlCommandType = sqlCommandType;
       mappedStatement.sqlSource = sqlSource;
       mappedStatement.resultType = resultType;
+      mappedStatement.lang = configuration.getDefaultScriptingLanguageInstance();
     }
 
     public MappedStatement build() {
