@@ -594,7 +594,7 @@ public class Client {
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409041346880.png"/>
 
-定义一个执行器 `Executor` 接口，使用执行器基类`BaseExecutor`定义模板流程，具体的查询实现交给子类
+定义一个执行器 `Executor` 接口，使用执行器基类 `BaseExecutor` 定义模板流程，具体的查询实现交给子类
 
 ```java
 public interface Executor {
@@ -662,9 +662,9 @@ public class SimpleExecutor extends BaseExecutor {
 ```
 
 - `newStatementHandler()` 负责实例化语句处理器，方便后续对语句的处理
-- `prepare()` 准备语句:简单语句和预处理语句 
-- `parameterize` 参数化语句,负责完成语句参数的设置
-- `query() `执行查询，执行SQL语句执行
+- `prepare()` 准备语句: 简单语句和预处理语句 
+- `parameterize` 参数化语句, 负责完成语句参数的设置
+- `query() ` 执行查询，执行 SQL 语句执行
 - `ResultSetHandler` 结果集处理，通过调用 set 方法来设置结果
 
 ### R
@@ -673,13 +673,13 @@ public class SimpleExecutor extends BaseExecutor {
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409041405364.png"/>
 
-## MetaObject元对象与反射的运用
+## MetaObject 元对象与反射的运用
 
 > 代码分支：[07-meta-object-reflection](https://github.com/DoubleW2w/sbs-mybatis/tree/07-meta-object-reflection)
 
 ### S
 
-在 `DataSourceFacotory` 中获取数据源存在硬编码，约定的配置比如 username,password 等是可以使用硬编码，但如果要进行扩展就很难知道其他的属性配置。
+在 `DataSourceFacotory` 中获取数据源存在硬编码，约定的配置比如 username, password 等是可以使用硬编码，但如果要进行扩展就很难知道其他的属性配置。
 
 ### T
 
@@ -691,13 +691,13 @@ public class SimpleExecutor extends BaseExecutor {
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409061555241.png"/>
 
 - reflection.factory: 负责创建需要的对象，负责进行实例化
-- reflection.invoker: 提供一个`Invoker`接口，将对象类中的属性值获取和设置可以分为 Field 字段的 get/set(「字段setter和getter」`GetFieldInvoker`和`SetFieldInvoker`),还有普通的 Method 的调用(「方法调用器」`MethodInvoker`)。
+- reflection.invoker: 提供一个 `Invoker` 接口，将对象类中的属性值获取和设置可以分为 Field 字段的 get/set(「字段 setter 和 getter」`GetFieldInvoker` 和 `SetFieldInvoker`), 还有普通的 Method 的调用(「方法调用器」`MethodInvoker`)。
 - reflection.property: 完成属性名称的分解和属性名称的转换，可以做一些方法转换属性名称。
-- reflection.wrapper: 对象包装器，定义了标准的get/set方法处理以及属性操作等方法，进一步反射调用处理。
+- reflection.wrapper: 对象包装器，定义了标准的 get/set 方法处理以及属性操作等方法，进一步反射调用处理。
 
   <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409061607600.png"/>
 
-#### 反射器Reflector
+#### 反射器 Reflector
 
 针对一个类的信息进行解耦，完成属性与方法之间的映射，并做缓存。
 
@@ -750,11 +750,11 @@ public class Reflector {
   //....省略
 }
 ```
-每一个类都有对应的一个反射器，当通过 Reflector 的构造函数创建出来时，会进行解析clazz信息。
+每一个类都有对应的一个反射器，当通过 Reflector 的构造函数创建出来时，会进行解析 clazz 信息。
 
 #### 元类 MetaClass
 
-MetaClass 依赖于 Reflector，不仅有基础的对象拆解功能，还能获取到 get/set 的Invoker方法。
+MetaClass 依赖于 Reflector，不仅有基础的对象拆解功能，还能获取到 get/set 的 Invoker 方法。
 ```java
 public class MetaClass {
 
@@ -805,10 +805,10 @@ public class MetaClass {
 MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个原对象，包装出一个元类。
 
 #### 元对象 MetaObject
-将元对象 MetaObject理解成一个反射服务，它简化了对对象属性的读取、修改和访问操作。
+将元对象 MetaObject 理解成一个反射服务，它简化了对对象属性的读取、修改和访问操作。
 - 获取属性值：getValue(String name)：根据属性名获取对象的属性值。支持嵌套属性的访问，例如 user.address.city。
 - 设置属性值：setValue(String name, Object value)：根据属性名设置对象的属性值，支持嵌套属性的修改。
-- 检测属性的可读写性：判断是否有getter和setter
+- 检测属性的可读写性：判断是否有 getter 和 setter
 - 对象的包装：MetaObject 可以通过 ObjectWrapper 包装对象，提供对对象的统一操作接口。
 
 ### R
@@ -816,4 +816,44 @@ MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个�
 本次反射拆了几个功能：「属性」、「调用」、「实例化」、「对象包装」。 将这几个功能合起来变成 `MetaObject`、`MetaClass`。
 
 在实现上基本采用的模式是 一个顶层接口定义规范，基类实现顶层接口可以完成默认实现，或者提供模板流程，具体的规范实现交给子类。
+
+
+
+
+
+## 细化 XML 语句构建器，完善解析流程
+
+> 代码分支: [08-xml-config-builder-parse-detail](https://github.com/DoubleW2w/sbs-mybatis/tree/08-xml-config-builder-parse-detail)
+
+### S
+
+在 XML 解析中，存在硬编码的问题，并且在预处理语句处理器 `PreparedStatementHandler#parameterize` 中，解析参数时，是写死的。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409120243359.png"/>
+
+
+
+```java
+  public void parameterize(Statement statement) throws SQLException {
+    log.info(" 参数化处理：{}", JSON.toJSONString(parameterObject));
+    PreparedStatement ps = (PreparedStatement) statement;
+    ps.setLong(1, Long.parseLong(((Object[]) parameterObject)[0].toString()));
+  }
+```
+
+
+
+### T
+
+- 引入 XMLMapperBuilder 处理「映射」
+- 引入 XMLStatementBudiler 处理「语句」
+- 引入脚本语言驱动器，具体操作静态和动态 SQL 语句节点的解析，参考 Mybatis 源码中 OGNL 的处理方式。
+
+### A
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/Mybatis%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-08-%E7%BB%86%E5%8C%96xml%E8%AF%AD%E5%8F%A5%E6%9E%84%E5%BB%BA%E5%99%A8.drawio.svg"/>
+
+在解析SQL源码的处理方式上，
+
+### R
 
