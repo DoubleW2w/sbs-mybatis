@@ -105,4 +105,13 @@ public class IUserDaoApiTest {
     User user2 = userDao2.queryUserInfo(new User(1L, "10001"));
     logger.info("测试结果：{}", JSON.toJSONString(user2));
   }
+
+  @Test
+  public void test_branch10() throws Exception{
+    // 1. 获取映射器对象
+    IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+    // 2. 测试验证：基本参数
+    User user = userDao.queryUserInfoById(1L);
+    logger.info("测试结果：{}", JSON.toJSONString(user));
+  }
 }

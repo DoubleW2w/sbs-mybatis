@@ -12,5 +12,13 @@ import java.util.List;
  * @project: sbs-mybatis
  */
 public interface ResultSetHandler {
+  /**
+   * 处理SQL查询结果集
+   *
+   * @param stmt 执行SQL语句的语句对象
+   * @return List结果集
+   * @param <E> 结果类型
+   * @throws SQLException SQL异常
+   */
   <E> List<E> handleResultSets(Statement stmt) throws SQLException;
 }

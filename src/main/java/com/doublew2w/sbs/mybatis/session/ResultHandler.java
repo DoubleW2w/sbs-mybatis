@@ -8,6 +8,8 @@ package com.doublew2w.sbs.mybatis.session;
  * @project: sbs-mybatis
  */
 public interface ResultHandler {
-  /** 处理结果 */
-  void handleResult();
+  /**
+   * 处理结果
+   */
+  void handleResult(ResultContext context);
 }

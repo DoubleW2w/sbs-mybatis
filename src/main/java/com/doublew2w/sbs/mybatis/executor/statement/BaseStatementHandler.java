@@ -7,6 +7,7 @@ import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.session.ResultHandler;
+import com.doublew2w.sbs.mybatis.session.RowBounds;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -40,20 +41,26 @@ public abstract class BaseStatementHandler implements StatementHandler {
   /** 绑定的SQL对象 */
   protected BoundSql boundSql;
 
+  protected final RowBounds rowBounds;
+
   public BaseStatementHandler(
       Executor executor,
       MappedStatement mappedStatement,
       Object parameterObject,
       ResultHandler resultHandler,
-      BoundSql boundSql) {
+      BoundSql boundSql,
+      RowBounds rowBounds) {
     this.configuration = mappedStatement.getConfiguration();
     this.executor = executor;
     this.mappedStatement = mappedStatement;
     this.boundSql = boundSql;
-
     this.parameterObject = parameterObject;
-    this.parameterHandler = configuration.newParameterHandler(mappedStatement, parameterObject, boundSql);
-    this.resultSetHandler = configuration.newResultSetHandler(executor, mappedStatement, boundSql);
+    this.rowBounds = rowBounds;
+    this.parameterHandler =
+        configuration.newParameterHandler(mappedStatement, parameterObject, boundSql);
+    this.resultSetHandler =
+        configuration.newResultSetHandler(
+            executor, mappedStatement, rowBounds, resultHandler, boundSql);
   }
 
   protected abstract Statement instantiateStatement(Connection connection) throws SQLException;

@@ -4,12 +4,12 @@ import com.doublew2w.sbs.mybatis.executor.Executor;
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.session.ResultHandler;
-import lombok.extern.slf4j.Slf4j;
-
+import com.doublew2w.sbs.mybatis.session.RowBounds;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 简单语句处理器
@@ -20,13 +20,15 @@ import java.util.List;
  */
 @Slf4j
 public class SimpleStatementHandler extends BaseStatementHandler {
+
   public SimpleStatementHandler(
       Executor executor,
       MappedStatement mappedStatement,
       Object parameterObject,
       ResultHandler resultHandler,
-      BoundSql boundSql) {
-    super(executor, mappedStatement, parameterObject, resultHandler, boundSql);
+      BoundSql boundSql,
+      RowBounds rowBounds) {
+    super(executor, mappedStatement, parameterObject, resultHandler, boundSql, rowBounds);
   }
 
   @Override

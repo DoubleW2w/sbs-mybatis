@@ -2,14 +2,15 @@ package com.doublew2w.sbs.mybatis.builder.xml;
 
 import com.doublew2w.sbs.mybatis.builder.BaseBuilder;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
+import com.doublew2w.sbs.mybatis.mapping.ResultMap;
 import com.doublew2w.sbs.mybatis.mapping.SqlCommandType;
 import com.doublew2w.sbs.mybatis.mapping.SqlSource;
 import com.doublew2w.sbs.mybatis.scripting.LanguageDriver;
-import com.doublew2w.sbs.mybatis.scripting.LanguageDriverRegistry;
 import com.doublew2w.sbs.mybatis.session.Configuration;
-import org.dom4j.Element;
-
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import org.dom4j.Element;
 
 /**
  * XML语句构建器
@@ -62,16 +63,33 @@ public class XMLStatementBuilder extends BaseBuilder {
     // 构建SQL源码
     SqlSource sqlSource = langDriver.createSqlSource(configuration, element, parameterTypeClass);
     // 构建映射语句
-    MappedStatement mappedStatement =
+    MappedStatement.Builder mappedStatementBuilder =
         new MappedStatement.Builder(
-                configuration,
-                currentNamespace + "." + id,
-                sqlCommandType,
-                sqlSource,
-                resultTypeClass)
-            .build();
+            configuration, currentNamespace + "." + id, sqlCommandType, sqlSource, resultTypeClass);
+    // 结果映射，给 MappedStatement#resultMaps
+    setMappedStatementResultMaps(resultTypeClass, mappedStatementBuilder);
 
     // 添加解析 SQL
-    configuration.addMappedStatement(mappedStatement);
+    configuration.addMappedStatement(mappedStatementBuilder.build());
+  }
+
+  private void setMappedStatementResultMaps(
+      Class<?> resultTypeClass, MappedStatement.Builder mappedStatementBuilder) {
+    /*
+     * 通常使用 resultType 即可满足大部分场景
+     * <select id="queryUserInfoById" resultType="cn.bugstack.mybatis.test.po.User">
+     * 使用 resultType 的情况下，Mybatis 会自动创建一个 ResultMap，基于属性名称映射列到 JavaBean 的属性上。
+     */
+    List<ResultMap> resultMaps = new ArrayList<>();
+    if (resultTypeClass != null) {
+      ResultMap.Builder inlineResultMapBuilder =
+          new ResultMap.Builder(
+              configuration,
+              mappedStatementBuilder.id() + "-Inline",
+              resultTypeClass,
+              new ArrayList<>());
+      resultMaps.add(inlineResultMapBuilder.build());
+    }
+    mappedStatementBuilder.resultMaps(resultMaps);
   }
 }

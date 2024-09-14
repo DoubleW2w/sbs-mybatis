@@ -4,6 +4,7 @@ import com.doublew2w.sbs.mybatis.executor.Executor;
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.session.ResultHandler;
+import com.doublew2w.sbs.mybatis.session.RowBounds;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -20,13 +21,15 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class PreparedStatementHandler extends BaseStatementHandler {
+
   public PreparedStatementHandler(
       Executor executor,
       MappedStatement mappedStatement,
       Object parameterObject,
       ResultHandler resultHandler,
-      BoundSql boundSql) {
-    super(executor, mappedStatement, parameterObject, resultHandler, boundSql);
+      BoundSql boundSql,
+      RowBounds rowBounds) {
+    super(executor, mappedStatement, parameterObject, resultHandler, boundSql, rowBounds);
   }
 
   @Override

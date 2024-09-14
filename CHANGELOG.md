@@ -897,3 +897,141 @@ MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个�
 - ParameterMappingTokenHandler
 
 参数使用
+
+
+
+## 结果集处理器
+
+> 代码分支：[]()
+
+
+
+对于结果集的封装处理，流程大致如下：
+
+1. 从 MapperXML 文件得到返回类型
+2. 根据数据库查询结果
+3. 通过反射类型进行实例化
+
+
+
+*DefaultResultSetHandler.java*
+
+```java
+  private <T> List<T> resultSet2Obj(ResultSet resultSet, Class<?> clazz) {
+    List<T> list = new ArrayList<>();
+    try {
+      ResultSetMetaData metaData = resultSet.getMetaData();
+      int columnCount = metaData.getColumnCount();
+      // 每次遍历行值
+      while (resultSet.next()) {
+        T obj = (T) clazz.getDeclaredConstructor().newInstance();
+        for (int i = 1; i <= columnCount; i++) {
+          Object value = resultSet.getObject(i);
+          String columnName = metaData.getColumnName(i);
+          String setMethod =
+              "set" + columnName.substring(0, 1).toUpperCase() + columnName.substring(1);
+          Method method;
+          if (value instanceof Timestamp) {
+            method = clazz.getMethod(setMethod, Date.class);
+          } else {
+            method = clazz.getMethod(setMethod, value.getClass());
+          }
+          method.invoke(obj, value);
+        }
+        list.add(obj);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return list;
+  }
+```
+
+- ResultSetMetaData 存放着 「列的类型和属性」、「总共有多少列」，「第一列是否可以用于where语句」中等信息
+- 遍历结果集
+- 根据「结果类型」创建一个「结果对象」
+- 获取到「列的值」，找到对应的「setter」，并进行调用
+- 将「结果对象」放入到「结果集合」
+- 最终返回
+
+
+
+```java
+  public List<Object> handleResultSets(Statement stmt) throws SQLException {
+    final List<Object> multipleResults = new ArrayList<>();
+    int resultSetCount = 0;
+    // 1.结果集包装处理
+    ResultSetWrapper rsw = new ResultSetWrapper(stmt.getResultSet(), configuration);
+    List<ResultMap> resultMaps = mappedStatement.getResultMaps();
+    while (rsw != null && resultMaps.size() > resultSetCount) {
+      ResultMap resultMap = resultMaps.get(resultSetCount);
+      // 2.处理结果
+      handleResultSet(rsw, resultMap, multipleResults, null);
+      // 3.获取下一个结果集
+      rsw = getNextResultSet(stmt);
+      resultSetCount++;
+    }
+    return collapseSingleResultList(multipleResults);
+  }
+```
+
+- 1: 结果集包装器设置「列名」、「类名」、「jdbc类型」、「对应的结果处理器」等
+- 2: 处理结果中，会先创建「结果处理器 DefaultResultHandler」。
+  - 实例化「结果对象」
+  - 根据「结果对象」创建「元对象」
+  - 处理列名，并处理「结果上下文」
+- 3: 获取下一个结果集
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/DefaultResultSetHandler_handleResultSets.svg"/>
+
+
+
+### ResultSetMetaData
+
+他包含 `ResultSet` 对象的信息，并提供了关于结果集中列的「数量」、「类型」、「属性」以及「其他元数据」的访问方法。
+
+```java
+public interface ResultSetMetaData extends Wrapper {
+  int getColumnCount() throws SQLException;
+  boolean isAutoIncrement(int column) throws SQLException;
+  boolean isCaseSensitive(int column) throws SQLException;
+  boolean isSearchable(int column) throws SQLException;
+  boolean isCurrency(int column) throws SQLException;
+  //...
+  String getColumnClassName(int column) throws SQLException;
+}
+```
+
+### ResultSet
+
+当一个数据库查询被执行后，它会返回一系列的数据行，这些数据行会被封装在一个 `ResultSet` 对象中。
+
+- 游标：内部有一个游标指向当前的数据行。初始时，游标位于第一行之前。每当调用 `next()` 并且返回 `true` 时，游标就移动到了下一行。
+- 列访问：内部可以通过多种方式获取列值
+- 可滚动性：默认情况下，`ResultSet` 是向前的，只读的（`TYPE_FORWARD_ONLY`），这意味着只能从前往后读取数据。但是，也可以创建可滚动的 `ResultSet`（`TYPE_SCROLL_INSENSITIVE` 或 `TYPE_SCROLL_SENSITIVE`），这样就可以在结果集中前后移动。
+- 元数据：除了数据本身，`ResultSet` 还提供了关于结果集结构的信息，如列的数量和类型。
+- 生命周期：`ResultSet` 和其关联的 `Statement` 对象有相同的生命周期。
+
+```java
+public interface ResultSet extends Wrapper, AutoCloseable {
+    next()：移动游标到下一行，如果还有数据则返回 true，否则返回 false。
+    close()：关闭 ResultSet，释放它占用的资源。
+    getString(int columnIndex)：根据列索引获取该列的字符串值。
+    getInt(int columnIndex)：根据列索引获取该列的整数值。
+    getBoolean(int columnIndex)：根据列索引获取该列的布尔值。
+    getFloat(int columnIndex)：根据列索引获取该列的浮点数值。
+    getDouble(int columnIndex)：根据列索引获取该列的双精度浮点数值。
+    getBigDecimal(int columnIndex)：根据列索引获取该列的 BigDecimal 值。
+    getDate(int columnIndex)：根据列索引获取该列的日期值。
+    getTime(int columnIndex)：根据列索引获取该列的时间值。
+    getTimestamp(int columnIndex)：根据列索引获取该列的时间戳值。
+    getObject(int columnIndex)：根据列索引获取该列的Java对象值。
+    getBlob(int columnIndex)：根据列索引获取该列的 Blob 值。
+    getCharacterStream(int columnIndex)：根据列索引获取该列的字符流。
+    getAsciiStream(int columnIndex)：根据列索引获取该列的ASCII流。
+    getUnicodeStream(int columnIndex)：根据列索引获取该列的Unicode流。
+    getBinaryStream(int columnIndex)：根据列索引获取该列的二进制流。
+    getWarnings()：获取有关 ResultSet 的警告信息。
+    clearWarnings()：清除所有警告信息。
+}
+```
