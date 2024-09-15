@@ -1,14 +1,11 @@
 package com.doublew2w.sbs.mybatis.builder.xml;
 
 import com.doublew2w.sbs.mybatis.builder.BaseBuilder;
-import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
-import com.doublew2w.sbs.mybatis.mapping.ResultMap;
+import com.doublew2w.sbs.mybatis.builder.MapperBuilderAssistant;
 import com.doublew2w.sbs.mybatis.mapping.SqlCommandType;
 import com.doublew2w.sbs.mybatis.mapping.SqlSource;
 import com.doublew2w.sbs.mybatis.scripting.LanguageDriver;
 import com.doublew2w.sbs.mybatis.session.Configuration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import org.dom4j.Element;
 
@@ -21,14 +18,14 @@ import org.dom4j.Element;
  */
 public class XMLStatementBuilder extends BaseBuilder {
 
-  private String currentNamespace;
+  private MapperBuilderAssistant mapperBuilderAssistant;
   private Element element;
 
   public XMLStatementBuilder(
-      Configuration configuration, Element element, String currentNamespace) {
+      Configuration configuration, MapperBuilderAssistant mapperBuilderAssistant, Element element) {
     super(configuration);
+    this.mapperBuilderAssistant = mapperBuilderAssistant;
     this.element = element;
-    this.currentNamespace = currentNamespace;
   }
 
   // 解析语句(select|insert|update|delete)
@@ -51,6 +48,8 @@ public class XMLStatementBuilder extends BaseBuilder {
     // 参数类型
     String parameterType = element.attributeValue("parameterType");
     Class<?> parameterTypeClass = resolveAlias(parameterType);
+    // 外部应用 resultMap
+    String resultMap = element.attributeValue("resultMap");
     // 结果类型
     String resultType = element.attributeValue("resultType");
     Class<?> resultTypeClass = resolveAlias(resultType);
@@ -62,34 +61,8 @@ public class XMLStatementBuilder extends BaseBuilder {
     LanguageDriver langDriver = configuration.getLanguageRegistry().getDefaultDriver();
     // 构建SQL源码
     SqlSource sqlSource = langDriver.createSqlSource(configuration, element, parameterTypeClass);
-    // 构建映射语句
-    MappedStatement.Builder mappedStatementBuilder =
-        new MappedStatement.Builder(
-            configuration, currentNamespace + "." + id, sqlCommandType, sqlSource, resultTypeClass);
-    // 结果映射，给 MappedStatement#resultMaps
-    setMappedStatementResultMaps(resultTypeClass, mappedStatementBuilder);
-
-    // 添加解析 SQL
-    configuration.addMappedStatement(mappedStatementBuilder.build());
-  }
-
-  private void setMappedStatementResultMaps(
-      Class<?> resultTypeClass, MappedStatement.Builder mappedStatementBuilder) {
-    /*
-     * 通常使用 resultType 即可满足大部分场景
-     * <select id="queryUserInfoById" resultType="cn.bugstack.mybatis.test.po.User">
-     * 使用 resultType 的情况下，Mybatis 会自动创建一个 ResultMap，基于属性名称映射列到 JavaBean 的属性上。
-     */
-    List<ResultMap> resultMaps = new ArrayList<>();
-    if (resultTypeClass != null) {
-      ResultMap.Builder inlineResultMapBuilder =
-          new ResultMap.Builder(
-              configuration,
-              mappedStatementBuilder.id() + "-Inline",
-              resultTypeClass,
-              new ArrayList<>());
-      resultMaps.add(inlineResultMapBuilder.build());
-    }
-    mappedStatementBuilder.resultMaps(resultMaps);
+    // 调用助手类【本节新添加，便于统一处理参数的包装】
+    mapperBuilderAssistant.addMappedStatement(
+        id, sqlSource, sqlCommandType, parameterTypeClass, resultMap, resultTypeClass, langDriver);
   }
 }
