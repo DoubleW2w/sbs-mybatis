@@ -26,6 +26,9 @@ public interface Executor {
       ResultHandler resultHandler,
       BoundSql boundSql);
 
+  /** 更新操作 */
+  int update(MappedStatement ms, Object parameter) throws SQLException;
+
   Transaction getTransaction();
 
   void commit(boolean required) throws SQLException;

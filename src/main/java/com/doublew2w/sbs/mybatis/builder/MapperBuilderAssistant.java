@@ -62,8 +62,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
     // 给 id加上namespace前缀形成唯一标识
     id = applyCurrentNamespace(id, false);
     MappedStatement.Builder statementBuilder =
-        new MappedStatement.Builder(
-            configuration, currentNamespace + "." + id, sqlCommandType, sqlSource, resultType);
+        new MappedStatement.Builder(configuration, id, sqlCommandType, sqlSource, resultType);
     // 结果映射，给 MappedStatement#resultMaps
     setStatementResultMap(resultMap, resultType, statementBuilder);
 

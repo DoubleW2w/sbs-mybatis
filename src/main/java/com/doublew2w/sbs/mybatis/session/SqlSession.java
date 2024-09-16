@@ -1,5 +1,6 @@
 package com.doublew2w.sbs.mybatis.session;
 
+
 /**
  * SqlSession 用来执行SQL，获取映射器，管理事务。
  *
@@ -28,6 +29,64 @@ public interface SqlSession {
    * @return Mapped object
    */
   <T> T selectOne(String statement, Object parameter);
+
+  /**
+   * 执行delete语句。将返回受影响的行数。
+   *
+   * @param statement 与要执行的语句匹配的唯一标识符
+   * @return 删除所影响的行数
+   */
+  int delete(String statement);
+
+  /**
+   * 执行delete语句。将返回受影响的行数
+   *
+   * @param statement 与要执行的语句匹配的唯一标识符。
+   * @param parameter 传入语句的参数
+   * @return 删除所影响的行数
+   */
+  int delete(String statement, Object parameter);
+
+  /**
+   * 执行update语句。将返回受影响的行数
+   *
+   * @param statement 与要执行的语句匹配的唯一标识符
+   * @return 删除所影响的行数
+   */
+  int update(String statement) ;
+
+  /**
+   * 执行update语句。将返回受影响的行数
+   *
+   * @param statement 与要执行的语句匹配的唯一标识符
+   * @param parameter 传入语句的参数
+   * @return 删除所影响的行数
+   */
+  int update(String statement, Object parameter);
+
+  /**
+   * 执行insert语句
+   *
+   * @param statement 与要执行的语句匹配的唯一标识符
+   * @return 传入语句的参数
+   */
+  int insert(String statement) ;
+
+  /**
+   * 使用给定的参数对象执行insert语句。
+   *
+   * @param statement 与要执行的语句匹配的唯一标识符
+   * @param parameter 传入语句的参数
+   * @return 受插入操作影响的行数。
+   */
+  int insert(String statement, Object parameter);
+
+  /**
+   * 以下是事务控制方法 commit,rollback
+   * Flushes batch statements and commits database connection.
+   * Note that database connection will not be committed if no updates/deletes/inserts were called.
+   */
+  void commit();
 
   /**
    * 获取映射器，这个巧妙的使用了泛型，使得类型安全

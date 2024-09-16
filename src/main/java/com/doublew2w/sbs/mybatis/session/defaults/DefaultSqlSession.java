@@ -34,7 +34,7 @@ public class DefaultSqlSession implements SqlSession {
 
   @Override
   public <T> T selectOne(String statement, Object parameter) {
-    log.info("执行查询 statement：{} parameter：{}", statement, JSON.toJSONString(parameter));
+    log.info("statement：{} parameter：{}", statement, JSON.toJSONString(parameter));
     MappedStatement ms = configuration.getMappedStatement(statement);
     List<T> list =
         executor.query(
@@ -44,6 +44,50 @@ public class DefaultSqlSession implements SqlSession {
             Executor.NO_RESULT_HANDLER,
             ms.getSqlSource().getBoundSql(parameter));
     return list.get(0);
+  }
+
+  @Override
+  public int delete(String statement) {
+    return update(statement, null);
+  }
+
+  @Override
+  public int delete(String statement, Object parameter) {
+    return update(statement, parameter);
+  }
+
+  @Override
+  public int update(String statement) {
+    return update(statement, null);
+  }
+
+  @Override
+  public int update(String statement, Object parameter) {
+    MappedStatement ms = configuration.getMappedStatement(statement);
+    try {
+      return executor.update(ms, parameter);
+    } catch (SQLException e) {
+      throw new RuntimeException("Error updating database.  Cause: " + e);
+    }
+  }
+
+  @Override
+  public int insert(String statement) {
+    return update(statement, null);
+  }
+
+  @Override
+  public int insert(String statement, Object parameter) {
+    return update(statement, parameter);
+  }
+
+  @Override
+  public void commit() {
+    try {
+      executor.commit(true);
+    } catch (SQLException e) {
+      throw new RuntimeException("Error committing transaction.  Cause: " + e);
+    }
   }
 
   @Override

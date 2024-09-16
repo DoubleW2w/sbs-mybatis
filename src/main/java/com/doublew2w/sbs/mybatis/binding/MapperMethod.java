@@ -29,15 +29,29 @@ public class MapperMethod {
     Object result = null;
     switch (command.getType()) {
       case INSERT:
-        break;
+        {
+          Object param = method.convertArgsToSqlCommandParam(args);
+          result = sqlSession.insert(command.getName(), param);
+          break;
+        }
       case DELETE:
-        break;
+        {
+          Object param = method.convertArgsToSqlCommandParam(args);
+          result = sqlSession.delete(command.getName(), param);
+          break;
+        }
       case UPDATE:
-        break;
+        {
+          Object param = method.convertArgsToSqlCommandParam(args);
+          result = sqlSession.update(command.getName(), param);
+          break;
+        }
       case SELECT:
-        Object param = method.convertArgsToSqlCommandParam(args);
-        result = sqlSession.selectOne(command.getName(), param);
-        break;
+        {
+          Object param = method.convertArgsToSqlCommandParam(args);
+          result = sqlSession.selectOne(command.getName(), param);
+          break;
+        }
       default:
         throw new RuntimeException("Unknown execution method for: " + command.getName());
     }

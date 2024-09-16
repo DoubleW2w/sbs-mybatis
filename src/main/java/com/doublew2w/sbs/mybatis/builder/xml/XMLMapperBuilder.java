@@ -5,6 +5,7 @@ import com.doublew2w.sbs.mybatis.builder.MapperBuilderAssistant;
 import com.doublew2w.sbs.mybatis.io.Resources;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -21,14 +22,11 @@ import org.dom4j.io.SAXReader;
 public class XMLMapperBuilder extends BaseBuilder {
 
   private Element element;
-  /**
-   * 映射器构建助手
-   */
+
+  /** 映射器构建助手 */
   private MapperBuilderAssistant builderAssistant;
 
-  /**
-   * mapperXML资源路径
-   */
+  /** mapperXML资源路径 */
   private String resource;
 
   public XMLMapperBuilder(InputStream inputStream, Configuration configuration, String resource)
@@ -70,13 +68,19 @@ public class XMLMapperBuilder extends BaseBuilder {
     builderAssistant.setCurrentNamespace(namespace);
 
     // 2.配置select|insert|update|delete
-    buildStatementFromContext(element.elements("select"));
+    List<Element> list = new ArrayList<>();
+    list.addAll(element.elements("select"));
+    list.addAll(element.elements("insert"));
+    list.addAll(element.elements("update"));
+    list.addAll(element.elements("delete"));
+    buildStatementFromContext(list);
   }
 
   // 配置select|insert|update|delete
   private void buildStatementFromContext(List<Element> list) {
     for (Element element : list) {
-      final XMLStatementBuilder statementParser = new XMLStatementBuilder(configuration, builderAssistant,element);
+      final XMLStatementBuilder statementParser =
+          new XMLStatementBuilder(configuration, builderAssistant, element);
       statementParser.parseStatementNode();
     }
   }

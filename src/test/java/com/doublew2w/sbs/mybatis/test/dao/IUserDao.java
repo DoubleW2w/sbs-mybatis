@@ -14,4 +14,9 @@ public interface IUserDao {
 
   User queryUserInfoById(Long id);
 
+  int updateUserName(User req);
+
+  void insertUserInfo(User req);
+
+  int deleteUserInfoByUserId(String userId);
 }

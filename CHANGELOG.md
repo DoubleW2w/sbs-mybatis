@@ -861,6 +861,8 @@ MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个�
 
 ## 使用策略模式，调用参数处理器
 
+> 代码分支:[09-type-handler-use](https://github.com/DoubleW2w/sbs-mybatis/tree/09-type-handler-use)
+
 本节内容是解决下面的参数处理硬编码问题，应该在解析 XML 文件的时候就已经确定好类型，调用「某个方法」就可以完成参数处理的操作。
 
 ```java
@@ -902,7 +904,7 @@ MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个�
 
 ## 结果集处理器
 
-> 代码分支：[]()
+> 代码分支：[10-result-set-handler](https://github.com/DoubleW2w/sbs-mybatis/tree/10-result-set-handler)
 
 
 
@@ -1035,3 +1037,191 @@ public interface ResultSet extends Wrapper, AutoCloseable {
     clearWarnings()：清除所有警告信息。
 }
 ```
+
+
+
+## 增删改操作补充
+
+> 代码分支：[11-insert-update-delete-dao](https://github.com/DoubleW2w/sbs-mybatis/tree/11-insert-update-delete-dao)
+
+扩展 XMLMapperBuilder#configurationElement 方法，添加对 insert/update/delete 的解析操作,所有的语句解析都会放置在 Configuration 类中。
+
+```java
+  private void configurationElement(Element element) {
+    // 1.配置namespace
+    String namespace = element.attributeValue("namespace");
+    if (namespace.isEmpty()) {
+      throw new RuntimeException("Mapper's namespace cannot be empty");
+    }
+    builderAssistant.setCurrentNamespace(namespace);
+
+    // 2.配置select|insert|update|delete
+    List<Element> list = new ArrayList<>();
+    list.addAll(element.elements("select"));
+    list.addAll(element.elements("insert"));
+    list.addAll(element.elements("update"));
+    list.addAll(element.elements("delete"));
+    buildStatementFromContext(list);
+  }
+```
+
+
+
+在 MapperMethod 中，添加「增删改」的指令执行。
+
+```java
+public Object execute(SqlSession sqlSession, Object[] args) {
+    Object result = null;
+    switch (command.getType()) {
+      case INSERT:
+        {
+          Object param = method.convertArgsToSqlCommandParam(args);
+          result = sqlSession.insert(command.getName(), param);
+          break;
+        }
+      case DELETE:
+        {
+          Object param = method.convertArgsToSqlCommandParam(args);
+          result = sqlSession.delete(command.getName(), param);
+          break;
+        }
+      case UPDATE:
+        {
+          Object param = method.convertArgsToSqlCommandParam(args);
+          result = sqlSession.update(command.getName(), param);
+          break;
+        }
+      case SELECT:
+        {
+          Object param = method.convertArgsToSqlCommandParam(args);
+          result = sqlSession.selectOne(command.getName(), param);
+          break;
+        }
+      default:
+        throw new RuntimeException("Unknown execution method for: " + command.getName());
+    }
+    return result;
+  }
+```
+
+本质上，都是对 update 方法的调用。
+
+*SqlSession.java* 
+
+```java
+public interface SqlSession {
+  //省略...
+  int delete(String statement);
+
+  int delete(String statement, Object parameter);
+
+  int update(String statement) ;
+
+  int update(String statement, Object parameter);
+
+  int insert(String statement) ;
+
+  int insert(String statement, Object parameter);
+  //省略...
+}
+```
+
+*DefaultSqlSession.java*
+
+```java
+public class DefaultSqlSession implements SqlSession {
+  //省略...
+  @Override
+  public int delete(String statement) {
+    return update(statement, null);
+  }
+
+  @Override
+  public int delete(String statement, Object parameter) {
+    return update(statement, parameter);
+  }
+
+  @Override
+  public int update(String statement) {
+    return update(statement, null);
+  }
+
+  @Override
+  public int update(String statement, Object parameter) {
+    MappedStatement ms = configuration.getMappedStatement(statement);
+    try {
+      return executor.update(ms, parameter);
+    } catch (SQLException e) {
+      throw new RuntimeException("Error updating database.  Cause: " + e);
+    }
+  }
+
+  @Override
+  public int insert(String statement) {
+    return update(statement, null);
+  }
+
+  @Override
+  public int insert(String statement, Object parameter) {
+    return update(statement, parameter);
+  }
+  //省略...
+}
+```
+
+同理，最终的update实现交给执行器Executor去实现，采用模板方法的模式。
+
+```java
+public abstract class BaseExecutor implements Executor {
+  //...省略
+  @Override
+  public int update(MappedStatement ms, Object parameter) throws SQLException {
+    log.info("executing an update");
+    if (closed) {
+      throw new RuntimeException("Executor was closed.");
+    }
+    return doUpdate(ms, parameter);
+  }
+
+  /** 真正的具体实现交给子类 */
+  protected abstract int doUpdate(MappedStatement ms, Object parameter) throws SQLException;
+  //...省略
+}
+```
+
+- 获取配置类
+- 创建 StatementHandler
+- 准备语句 Statement
+- 执行操作，返回结果
+
+```java
+public class SimpleExecutor extends BaseExecutor {  
+  //...省略
+  protected <E> List<E> doQuery(
+    MappedStatement ms,
+    Object parameter,
+    RowBounds rowBounds,
+    ResultHandler resultHandler,
+    BoundSql boundSql) {
+    Statement stmt = null;
+    try {
+      // 获取配置类
+      Configuration configuration = ms.getConfiguration();
+      // 新建一个 StatementHandler
+      StatementHandler handler =
+        configuration.newStatementHandler(
+        this, ms, parameter, rowBounds, resultHandler, boundSql);
+      Connection connection = transaction.getConnection();
+      // 准备语句
+      stmt = prepareStatement(handler);
+      // 返回结果
+      return handler.query(stmt, resultHandler);
+    } catch (SQLException e) {
+      log.error(e.getMessage(), e);
+      return null;
+    }
+  }
+  //...省略
+}
+```
+

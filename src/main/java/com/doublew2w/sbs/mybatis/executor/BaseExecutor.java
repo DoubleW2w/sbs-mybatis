@@ -7,6 +7,7 @@ import com.doublew2w.sbs.mybatis.session.ResultHandler;
 import com.doublew2w.sbs.mybatis.session.RowBounds;
 import com.doublew2w.sbs.mybatis.transaction.Transaction;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,11 +42,24 @@ public abstract class BaseExecutor implements Executor {
       RowBounds rowBounds,
       ResultHandler resultHandler,
       BoundSql boundSql) {
+    log.info("executing an query");
     if (closed) {
       throw new RuntimeException("Executor was closed.");
     }
     return doQuery(ms, parameter, rowBounds, resultHandler, boundSql);
   }
+
+  @Override
+  public int update(MappedStatement ms, Object parameter) throws SQLException {
+    log.info("executing an update");
+    if (closed) {
+      throw new RuntimeException("Executor was closed.");
+    }
+    return doUpdate(ms, parameter);
+  }
+
+  /** 真正的具体实现交给子类 */
+  protected abstract int doUpdate(MappedStatement ms, Object parameter) throws SQLException;
 
   /**
    * 真正查询的逻辑实现
@@ -104,6 +118,15 @@ public abstract class BaseExecutor implements Executor {
     } finally {
       transaction = null;
       closed = true;
+    }
+  }
+
+  protected void closeStatement(Statement statement) {
+    if (statement != null) {
+      try {
+        statement.close();
+      } catch (SQLException ignore) {
+      }
     }
   }
 }

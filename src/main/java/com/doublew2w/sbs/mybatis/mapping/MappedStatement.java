@@ -38,6 +38,11 @@ public class MappedStatement {
 
   MappedStatement() {}
 
+  public BoundSql getBoundSql(Object parameterObject) {
+    // 调用 SqlSource#getBoundSql
+    return sqlSource.getBoundSql(parameterObject);
+  }
+
   /** 建造者 */
   public static class Builder {
 
@@ -65,7 +70,6 @@ public class MappedStatement {
       mappedStatement.resultMaps = resultMaps;
       return this;
     }
-
 
     public MappedStatement build() {
       assert mappedStatement.configuration != null;
