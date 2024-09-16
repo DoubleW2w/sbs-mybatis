@@ -1,10 +1,8 @@
 package com.doublew2w.sbs.mybatis.reflection.factory;
 
-import javax.management.ReflectionException;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 默认对象工厂，所有的对象都有工厂来生成
@@ -60,7 +58,7 @@ public class DefaultObjectFactory implements ObjectFactory, Serializable {
       StringBuilder argValues = new StringBuilder();
       if (constructorArgs != null) {
         for (Object argValue : constructorArgs) {
-          argValues.append(String.valueOf(argValue));
+          argValues.append(argValue);
           argValues.append(",");
         }
       }

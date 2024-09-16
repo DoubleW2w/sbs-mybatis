@@ -7,6 +7,7 @@ import com.doublew2w.sbs.mybatis.test.dao.IUserDao;
 import com.doublew2w.sbs.mybatis.test.po.User;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -107,7 +108,7 @@ public class IUserDaoApiTest {
   }
 
   @Test
-  public void test_branch10() throws Exception{
+  public void test_branch10() throws Exception {
     // 1. 获取映射器对象
     IUserDao userDao = sqlSession.getMapper(IUserDao.class);
     // 2. 测试验证：基本参数
@@ -116,7 +117,7 @@ public class IUserDaoApiTest {
   }
 
   @Test
-  public void test_branch11_insertUserInfo(){
+  public void test_branch11_insertUserInfo() {
     // 1. 获取映射器对象
     IUserDao userDao = sqlSession.getMapper(IUserDao.class);
     // 2. 测试验证
@@ -143,6 +144,7 @@ public class IUserDaoApiTest {
     // 3. 提交事务
     sqlSession.commit();
   }
+
   @Test
   public void test_branch11_updateUserName() {
     // 1. 获取映射器对象
@@ -154,5 +156,14 @@ public class IUserDaoApiTest {
 
     // 3. 提交事务
     sqlSession.commit();
+  }
+
+  @Test
+  public void test_branch11_queryUserInfoList() {
+    // 1. 获取映射器对象
+    IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+    // 2. 测试验证：基本参数
+    List<User> list = userDao.queryUserInfoList();
+    logger.info("测试结果：{}", JSON.toJSONString(list));
   }
 }

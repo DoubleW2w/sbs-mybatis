@@ -47,6 +47,18 @@ public class DefaultSqlSession implements SqlSession {
   }
 
   @Override
+  public <E> List<E> selectList(String statement, Object parameter) {
+    log.info("执行查询 statement：{} parameter：{}", statement, JSON.toJSONString(parameter));
+    MappedStatement ms = configuration.getMappedStatement(statement);
+    return executor.query(
+        ms,
+        parameter,
+        RowBounds.DEFAULT,
+        Executor.NO_RESULT_HANDLER,
+        ms.getSqlSource().getBoundSql(parameter));
+  }
+
+  @Override
   public int delete(String statement) {
     return update(statement, null);
   }

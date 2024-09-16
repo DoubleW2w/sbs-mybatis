@@ -1,6 +1,7 @@
 package com.doublew2w.sbs.mybatis.test.dao;
 
 import com.doublew2w.sbs.mybatis.test.po.User;
+import java.util.List;
 
 /**
  * @author: DoubleW2w
@@ -19,4 +20,6 @@ public interface IUserDao {
   void insertUserInfo(User req);
 
   int deleteUserInfoByUserId(String userId);
+
+  List<User> queryUserInfoList();
 }

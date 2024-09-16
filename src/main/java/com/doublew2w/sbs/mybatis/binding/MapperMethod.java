@@ -49,7 +49,11 @@ public class MapperMethod {
       case SELECT:
         {
           Object param = method.convertArgsToSqlCommandParam(args);
-          result = sqlSession.selectOne(command.getName(), param);
+          if (method.returnsMany) {
+            result = sqlSession.selectList(command.getName(), param);
+          } else {
+            result = sqlSession.selectOne(command.getName(), param);
+          }
           break;
         }
       default:
@@ -77,9 +81,15 @@ public class MapperMethod {
 
   /** 方法签名 */
   public static class MethodSignature {
+    private final boolean returnsMany;
+    private final Class<?> returnType;
     private final SortedMap<Integer, String> params;
 
     public MethodSignature(Configuration configuration, Method method) {
+      this.returnType = method.getReturnType();
+      this.returnsMany =
+          (configuration.getObjectFactory().isCollection(this.returnType)
+              || this.returnType.isArray());
       this.params = Collections.unmodifiableSortedMap(getParams(method));
     }
 
@@ -122,6 +132,10 @@ public class MapperMethod {
         params.put(i, paramName);
       }
       return params;
+    }
+
+    public boolean returnsMany() {
+      return returnsMany;
     }
   }
 
