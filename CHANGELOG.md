@@ -861,7 +861,7 @@ MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个�
 
 ## 使用策略模式，调用参数处理器
 
-> 代码分支:[09-type-handler-use](https://github.com/DoubleW2w/sbs-mybatis/tree/09-type-handler-use)
+> 代码分支: [09-type-handler-use](https://github.com/DoubleW2w/sbs-mybatis/tree/09-type-handler-use)
 
 本节内容是解决下面的参数处理硬编码问题，应该在解析 XML 文件的时候就已经确定好类型，调用「某个方法」就可以完成参数处理的操作。
 
@@ -949,7 +949,7 @@ MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个�
   }
 ```
 
-- ResultSetMetaData 存放着 「列的类型和属性」、「总共有多少列」，「第一列是否可以用于where语句」中等信息
+- ResultSetMetaData 存放着 「列的类型和属性」、「总共有多少列」，「第一列是否可以用于 where 语句」中等信息
 - 遍历结果集
 - 根据「结果类型」创建一个「结果对象」
 - 获取到「列的值」，找到对应的「setter」，并进行调用
@@ -977,7 +977,7 @@ MetaClass 元类相当于是对我们需要处理对象的包装，解耦一个�
   }
 ```
 
-- 1: 结果集包装器设置「列名」、「类名」、「jdbc类型」、「对应的结果处理器」等
+- 1: 结果集包装器设置「列名」、「类名」、「jdbc 类型」、「对应的结果处理器」等
 - 2: 处理结果中，会先创建「结果处理器 DefaultResultHandler」。
   - 实例化「结果对象」
   - 根据「结果对象」创建「元对象」
@@ -1044,7 +1044,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
 
 > 代码分支：[11-insert-update-delete-dao](https://github.com/DoubleW2w/sbs-mybatis/tree/11-insert-update-delete-dao)
 
-扩展 XMLMapperBuilder#configurationElement 方法，添加对 insert/update/delete 的解析操作,所有的语句解析都会放置在 Configuration 类中。
+扩展 XMLMapperBuilder#configurationElement 方法，添加对 insert/update/delete 的解析操作, 所有的语句解析都会放置在 Configuration 类中。
 
 ```java
   private void configurationElement(Element element) {
@@ -1169,7 +1169,7 @@ public class DefaultSqlSession implements SqlSession {
 }
 ```
 
-同理，最终的update实现交给执行器Executor去实现，采用模板方法的模式。
+同理，最终的 update 实现交给执行器 Executor 去实现，采用模板方法的模式。
 
 ```java
 public abstract class BaseExecutor implements Executor {
@@ -1223,5 +1223,246 @@ public class SimpleExecutor extends BaseExecutor {
   }
   //...省略
 }
+```
+
+## 初始化方式-XML 配置总结
+
+```java
+public void test_SqlSessionFactory() throws IOException {
+  // 1. 从SqlSessionFactory中获取SqlSession
+  SqlSessionFactory sqlSessionFactory =
+    new SqlSessionFactoryBuilder().build(Resources.getResourceAsReader("mybatis-config.xml"));
+  SqlSession sqlSession = sqlSessionFactory.openSession();
+
+  // 2. 获取映射器对象
+  IUserDao userDao = sqlSession.getMapper(IUserDao.class);
+
+  // 3. 测试验证
+  User user = userDao.queryUserInfoById(1L);
+  logger.info("测试结果：{}", JSON.toJSONString(user));
+}
+```
+
+从上面的例子我们可以知道基本的流程：
+
+1. 创建 `SqlSessionFactoryBuilder` 加载 MyBatis 配置文件
+1. 创建 `SqlSession`
+1. 获取 `Mapper`
+1. 执行 SQL 语句
+
+### 创建 SqlSessionFactory 的基本过程
+
+SqlSessionFactoryBuilder 根据传入的数据流生成 Configuration 对象，然后根据 Configuration 对象创建默认的 SqlSessionFactory 实例。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409170835897.png"/>
+
+- `Resources` 读取配置文件进入程序，变成一个输入流。
+- 调用 `SqlSessionFactoryBuilder` 对象的 `build(inputStream)` 方法；
+- `SqlSessionFactoryBuilder` 调用 `XMLConfigBuilder` 对象的 `parse()` 方法；
+- `XMLConfigBuilder` 对象返回 `Configuration` 对象；
+- `SqlSessionFactoryBuilder` 根据 `Configuration` 对象创建一个 `DefaultSessionFactory` 对象；
+- `SqlSessionFactoryBuilder` 返回 `DefaultSessionFactory` 对象给 Client。
+
+```java
+public class SqlSessionFactoryBuilder {
+
+  public SqlSessionFactory build(Reader reader) {
+    XMLConfigBuilder xmlConfigBuilder = new XMLConfigBuilder(reader);
+    return build(xmlConfigBuilder.parse());
+  }
+
+  public SqlSessionFactory build(Configuration config) {
+    return new DefaultSqlSessionFactory(config);
+  }
+}
+```
+
+- Configuration ：该对象是 mybatis-config.xml 文件中所有 mybatis 配置信息
+
+### 建造者模式和工厂模式及类说明
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409170845610.png"/>
+
+- `Configuration` ：该对象是 *mybatis-config.xml* 文件中所有 mybatis 配置信息
+- `SqlSessionFactoryBuilder` 是通过建造者模式来创建 `SqlSessionFactory` 
+- `SqlSessionFactory` 是通过工厂模式来创建 `SqlSession`
+
+建造者模式和工厂模式都是「创建型设计模式」，建造者模式适用于那些构建过程复杂或者需要多个步骤来完成的对象，强调一个「分步创建」。而工厂模式是通过定义一个创建的接口来创建出子类，强调「如何创建一个产品对象，并不是强调过程和复杂性」
+
+- **建造者模式** 通常用于构建需要多个步骤的复杂对象
+- **工厂模式** 则适用于创建不同类型的对象，通常不涉及对象的复杂构建过程
+
+
+
+### 创建Configuration对象的过程
+
+*XMLConfigBuilder#parse()*
+
+```java
+  public Configuration parse() {
+    try {
+      // 环境
+      environmentsElement(root.element("environments"));
+      // 解析映射器
+      mapperElement(root.element("mappers"));
+    } catch (Exception e) {
+      throw new RuntimeException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
+    }
+    return configuration;
+  }
+```
+
+本质上就是解析 Configuration 节点下所有子节点，比如 environments,mappers等。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+    <environments default="development">
+        <environment id="development">
+            <transactionManager type="JDBC"/>
+            <dataSource type="UNPOOLED">
+                <property name="driver" value="com.mysql.cj.jdbc.Driver"/>
+                <property name="url"
+                          value="jdbc:mysql://localhost:13306/sbs_mybatis?useUnicode=true"/>
+                <property name="username" value="root"/>
+                <property name="password" value="123456"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <mappers>
+        <mapper resource="mapper/UserMapper.xml"/>
+    </mappers>
+</configuration>
+```
+
+在简单版的解析过程中，通过「获取节点信息」，「获取节点属性值」来创建各种对象并放置在 Configuration 对象中
+
+```java
+private void environmentsElement(Element environments) throws Exception {
+  // 默认环境
+  String environment = environments.attributeValue("default");
+  List<Element> environmentList = environments.elements("environment");
+  for (Element e : environmentList) {
+    String id = e.attributeValue("id");
+    if (environment.equals(id)) {
+      // todo：事务管理器，缺少对应的测试
+      TransactionFactory txFactory =
+        (TransactionFactory)
+        typeAliasRegistry
+        .resolveAlias(e.element("transactionManager").attributeValue("type"))
+        .newInstance();
+      // 数据源
+      Element dataSourceElement = e.element("dataSource");
+      DataSourceFactory dataSourceFactory =
+        (DataSourceFactory)
+        typeAliasRegistry
+        .resolveAlias(dataSourceElement.attributeValue("type"))
+        .newInstance();
+      // 注入数据源配置属性
+      List<Element> propertyList = dataSourceElement.elements("property");
+      Properties props = new Properties();
+      for (Element property : propertyList) {
+        props.setProperty(property.attributeValue("name"), property.attributeValue("value"));
+      }
+      dataSourceFactory.setProperties(props);
+      DataSource dataSource = dataSourceFactory.getDataSource();
+
+      // 构建环境
+      Environment.Builder environmentBuilder =
+        new Environment.Builder(id).transactionFactory(txFactory).dataSource(dataSource);
+      configuration.setEnvironment(environmentBuilder.build());
+    }
+  }
+}
+```
+
+在解析mappers节点时，会利用 XMLMapperBuilder。
+
+```java
+  private void mapperElement(Element mappers) throws Exception {
+    List<Element> mapperList = mappers.elements("mapper");
+    for (Element e : mapperList) {
+      String resource = e.attributeValue("resource");
+      InputStream inputStream = Resources.getResourceAsStream(resource);
+
+      // 在for循环里每个mapper都重新new一个XMLMapperBuilder，来解析
+      XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource);
+      mapperParser.parse();
+    }
+  }
+```
+
+### Mapper映射文件配置
+
+解析每一个类型的标签
+
+```java
+  // 配置mapper元素
+  // <mapper namespace="org.mybatis.example.BlogMapper">
+  //   <select id="selectBlog" parameterType="int" resultType="Blog">
+  //    select * from Blog where id = #{id}
+  //   </select>
+  // </mapper>
+  private void configurationElement(Element element) {
+    // 1.配置namespace
+    String namespace = element.attributeValue("namespace");
+    if (namespace.isEmpty()) {
+      throw new RuntimeException("Mapper's namespace cannot be empty");
+    }
+    builderAssistant.setCurrentNamespace(namespace);
+
+    // 2.配置select|insert|update|delete
+    List<Element> list = new ArrayList<>();
+    list.addAll(element.elements("select"));
+    list.addAll(element.elements("insert"));
+    list.addAll(element.elements("update"));
+    list.addAll(element.elements("delete"));
+    buildStatementFromContext(list);
+  }
+```
+
+解析每个标签下的属性信息
+
+```java
+  // 解析语句(select|insert|update|delete)
+  // <select
+  //  id="selectPerson"
+  //  parameterType="int"
+  //  parameterMap="deprecated"
+  //  resultType="hashmap"
+  //  resultMap="personResultMap"
+  //  flushCache="false"
+  //  useCache="true"
+  //  timeout="10000"
+  //  fetchSize="256"
+  //  statementType="PREPARED"
+  //  resultSetType="FORWARD_ONLY">
+  //  SELECT * FROM PERSON WHERE ID = #{id}
+  // </select>
+  public void parseStatementNode() {
+    String id = element.attributeValue("id");
+    // 参数类型
+    String parameterType = element.attributeValue("parameterType");
+    Class<?> parameterTypeClass = resolveAlias(parameterType);
+    // 外部应用 resultMap
+    String resultMap = element.attributeValue("resultMap");
+    // 结果类型
+    String resultType = element.attributeValue("resultType");
+    Class<?> resultTypeClass = resolveAlias(resultType);
+    // 获取命令类型(select|insert|update|delete)
+    String nodeName = element.getName();
+    SqlCommandType sqlCommandType = SqlCommandType.valueOf(nodeName.toUpperCase(Locale.ENGLISH));
+
+    // 获取默认语言驱动器
+    LanguageDriver langDriver = configuration.getLanguageRegistry().getDefaultDriver();
+    // 构建SQL源码
+    SqlSource sqlSource = langDriver.createSqlSource(configuration, element, parameterTypeClass);
+    // 调用助手类【本节新添加，便于统一处理参数的包装】
+    mapperBuilderAssistant.addMappedStatement(
+        id, sqlSource, sqlCommandType, parameterTypeClass, resultMap, resultTypeClass, langDriver);
+  }
 ```
 
