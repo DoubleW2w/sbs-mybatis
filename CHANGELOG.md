@@ -1470,6 +1470,8 @@ private void environmentsElement(Element environments) throws Exception {
 
 ## 通过注解配置
 
+> 代码分支：[12-annotation-config-sql](https://github.com/DoubleW2w/sbs-mybatis/tree/12-annotation-config-sql)
+
 > 如果你想写一个 `@Select("select * from user")`，你需要解决什么问题？
 
 1. 定义注解类
