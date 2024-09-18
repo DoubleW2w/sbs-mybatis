@@ -14,6 +14,7 @@ import com.doublew2w.sbs.mybatis.executor.statement.StatementHandler;
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.Environment;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
+import com.doublew2w.sbs.mybatis.mapping.ResultMap;
 import com.doublew2w.sbs.mybatis.reflection.MetaObject;
 import com.doublew2w.sbs.mybatis.reflection.factory.DefaultObjectFactory;
 import com.doublew2w.sbs.mybatis.reflection.factory.ObjectFactory;
@@ -49,7 +50,8 @@ public class Configuration {
 
   /** 映射的语句，存在Map里 */
   protected final Map<String, MappedStatement> mappedStatements = new HashMap<>();
-
+  // 结果映射，存在Map里
+  protected final Map<String, ResultMap> resultMaps = new HashMap<>();
   // 类型别名注册机
   @Getter protected final TypeAliasRegistry typeAliasRegistry = new TypeAliasRegistry();
   @Getter protected final LanguageDriverRegistry languageRegistry = new LanguageDriverRegistry();
@@ -149,5 +151,13 @@ public class Configuration {
 
   public LanguageDriver getDefaultScriptingLanguageInstance() {
     return languageRegistry.getDefaultDriver();
+  }
+
+  public ResultMap getResultMap(String id) {
+    return resultMaps.get(id);
+  }
+
+  public void addResultMap(ResultMap resultMap) {
+    resultMaps.put(resultMap.getId(), resultMap);
   }
 }

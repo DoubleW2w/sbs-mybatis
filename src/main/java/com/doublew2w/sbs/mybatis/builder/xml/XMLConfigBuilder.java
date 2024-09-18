@@ -3,18 +3,12 @@ package com.doublew2w.sbs.mybatis.builder.xml;
 import com.doublew2w.sbs.mybatis.builder.BaseBuilder;
 import com.doublew2w.sbs.mybatis.datasource.DataSourceFactory;
 import com.doublew2w.sbs.mybatis.io.Resources;
-import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.Environment;
-import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
-import com.doublew2w.sbs.mybatis.mapping.SqlCommandType;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.transaction.TransactionFactory;
-
 import java.io.InputStream;
 import java.io.Reader;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.dom4j.Document;
@@ -120,12 +114,22 @@ public class XMLConfigBuilder extends BaseBuilder {
   private void mapperElement(Element mappers) throws Exception {
     List<Element> mapperList = mappers.elements("mapper");
     for (Element e : mapperList) {
+      // xml资源路径
       String resource = e.attributeValue("resource");
-      InputStream inputStream = Resources.getResourceAsStream(resource);
-
-      // 在for循环里每个mapper都重新new一个XMLMapperBuilder，来解析
-      XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource);
-      mapperParser.parse();
+      // mapper接口
+      String mapperClass = e.attributeValue("class");
+      // XML 解析
+      if (resource != null && mapperClass == null) {
+        InputStream inputStream = Resources.getResourceAsStream(resource);
+        // 在for循环里每个mapper都重新new一个XMLMapperBuilder，来解析
+        XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource);
+        mapperParser.parse();
+      }
+      // Annotation 注解解析
+      else if (resource == null && mapperClass != null) {
+        Class<?> mapperInterface = Resources.classForName(mapperClass);
+        configuration.addMapper(mapperInterface);
+      }
     }
   }
 }

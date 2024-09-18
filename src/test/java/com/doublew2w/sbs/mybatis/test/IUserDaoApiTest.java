@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.doublew2w.sbs.mybatis.io.Resources;
 import com.doublew2w.sbs.mybatis.session.*;
 import com.doublew2w.sbs.mybatis.test.dao.IUserDao;
+import com.doublew2w.sbs.mybatis.test.dao.IUserDaoAnno;
 import com.doublew2w.sbs.mybatis.test.po.User;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
@@ -165,5 +166,14 @@ public class IUserDaoApiTest {
     // 2. 测试验证：基本参数
     List<User> list = userDao.queryUserInfoList();
     logger.info("测试结果：{}", JSON.toJSONString(list));
+  }
+
+  @Test
+  public void test_branch12_annotationConfigSql(){
+    // 1. 获取映射器对象
+    IUserDaoAnno dao = sqlSession.getMapper(IUserDaoAnno.class);
+    // 2. 测试验证：基本参数
+    User user = dao.queryUserInfo(new User(2L, "10001"));
+    logger.info("测试结果：{}", JSON.toJSONString(user));
   }
 }

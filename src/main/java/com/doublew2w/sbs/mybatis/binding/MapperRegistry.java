@@ -1,9 +1,9 @@
 package com.doublew2w.sbs.mybatis.binding;
 
 import cn.hutool.core.lang.ClassScanner;
+import com.doublew2w.sbs.mybatis.builder.annotation.MapperAnnotationBuilder;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.session.SqlSession;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -58,8 +58,19 @@ public class MapperRegistry {
         // 如果重复添加了，报错
         throw new RuntimeException("Type " + type + " is already known to the MapperRegistry.");
       }
-      // 注册映射器代理工厂
-      knownMappers.put(type, new MapperProxyFactory<>(type));
+      boolean loadCompleted = false;
+      try{
+        // 注册映射器代理工厂
+        knownMappers.put(type, new MapperProxyFactory<>(type));
+        // 注解解析，如果因为解析失败的情况，就会删除加载状态。
+        MapperAnnotationBuilder parser = new MapperAnnotationBuilder(config, type);
+        parser.parse();
+        loadCompleted = true;
+      } finally {
+        if (!loadCompleted) {
+          knownMappers.remove(type);
+        }
+      }
     }
   }
 

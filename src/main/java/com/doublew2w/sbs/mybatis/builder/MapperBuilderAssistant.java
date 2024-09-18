@@ -1,9 +1,6 @@
 package com.doublew2w.sbs.mybatis.builder;
 
-import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
-import com.doublew2w.sbs.mybatis.mapping.ResultMap;
-import com.doublew2w.sbs.mybatis.mapping.SqlCommandType;
-import com.doublew2w.sbs.mybatis.mapping.SqlSource;
+import com.doublew2w.sbs.mybatis.mapping.*;
 import com.doublew2w.sbs.mybatis.scripting.LanguageDriver;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import java.util.ArrayList;
@@ -46,7 +43,16 @@ public class MapperBuilderAssistant extends BaseBuilder {
     }
     if (isReference) {
       if (base.contains(".")) return base;
+    } else {
+      if (base.startsWith(currentNamespace + ".")) {
+        return base;
+      }
+      if (base.contains(".")) {
+        throw new RuntimeException(
+            "Dots are not allowed in element names, please remove it from " + base);
+      }
     }
+
     return currentNamespace + "." + base;
   }
 
@@ -79,7 +85,10 @@ public class MapperBuilderAssistant extends BaseBuilder {
     resultMap = applyCurrentNamespace(resultMap, true);
     List<ResultMap> resultMaps = new ArrayList<>();
     if (resultMap != null) {
-      // TODO：后续添加
+      String[] resultMapNames = resultMap.split(",");
+      for (String resultMapName : resultMapNames) {
+        resultMaps.add(configuration.getResultMap(resultMapName.trim()));
+      }
     }
     /*
      * 通常使用 resultType 即可满足大部分场景
@@ -93,5 +102,13 @@ public class MapperBuilderAssistant extends BaseBuilder {
       resultMaps.add(inlineResultMapBuilder.build());
     }
     statementBuilder.resultMaps(resultMaps);
+  }
+
+  public ResultMap addResultMap(String id, Class<?> type, List<ResultMapping> resultMappings) {
+    ResultMap.Builder inlineResultMapBuilder =
+        new ResultMap.Builder(configuration, id, type, resultMappings);
+    ResultMap resultMap = inlineResultMapBuilder.build();
+    configuration.addResultMap(resultMap);
+    return resultMap;
   }
 }

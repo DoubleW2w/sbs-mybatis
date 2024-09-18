@@ -21,7 +21,7 @@ public class GenericTokenParser {
   }
 
   /**
-   * 解析过程
+   * SQL语句动态参数替换成 ?
    *
    * @param text
    * @return 结果

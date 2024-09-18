@@ -1466,3 +1466,105 @@ private void environmentsElement(Element environments) throws Exception {
   }
 ```
 
+
+
+## 通过注解配置
+
+> 如果你想写一个 `@Select("select * from user")`，你需要解决什么问题？
+
+1. 定义注解类
+
+2. 在注册映射器的地方添加对映射器的解析工作。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409180500020.png"/>
+
+| **注解方式**          | **xml方式**           |
+| --------------------- | --------------------- |
+| @Select               | `<select>`            |
+| @Select("SQL语句")    | SQL语句               |
+| 方法名                | 标签唯一标识          |
+| 返回类型              | 返回类型              |
+| 入参类型              | 入参类型              |
+| 接口全路径名          | 命名空间              |
+| 接口全路径名称.方法名 | 命名空间.标签唯一标识 |
+
+
+
+将在 xml 的解析逻辑挪出来放到一个新的类中 `MapperAnnotationBuilder` 注解解析方式。
+
+```java
+public class MapperRegistry {
+  //...省略
+  public <T> void addMapper(Class<?> type) {
+    /* Mapper 必须是接口才会注册 */
+    if (type.isInterface()) {
+      if (hasMapper(type)) {
+        // 如果重复添加了，报错
+        throw new RuntimeException("Type " + type + " is already known to the MapperRegistry.");
+      }
+      boolean loadCompleted = false;
+      try{
+        // 注册映射器代理工厂
+        knownMappers.put(type, new MapperProxyFactory<>(type));
+        // 注解解析，如果因为解析失败的情况，就会删除加载状态。
+        MapperAnnotationBuilder parser = new MapperAnnotationBuilder(config, type);
+        parser.parse();
+        loadCompleted = true;
+      } finally {
+        if (!loadCompleted) {
+          knownMappers.remove(type);
+        }
+      }
+    }
+  }
+  // 省略
+}
+```
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/Mybatis%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-11-%E6%B3%A8%E8%A7%A3%E9%85%8D%E7%BD%AE%E8%A7%A3%E6%9E%90SQL.drawio.svg"/>
+
+
+
+添加mapper接口的扫描，和xml文件的配置
+
+```java
+public class XMLConfigBuilder extends BaseBuilder {  
+  //省略...
+  private void mapperElement(Element mappers) throws Exception {
+    List<Element> mapperList = mappers.elements("mapper");
+    for (Element e : mapperList) {
+      // xml资源路径
+      String resource = e.attributeValue("resource");
+      // mapper接口
+      String mapperClass = e.attributeValue("class");
+      // XML 解析
+      if (resource != null && mapperClass == null) {
+        InputStream inputStream = Resources.getResourceAsStream(resource);
+        // 在for循环里每个mapper都重新new一个XMLMapperBuilder，来解析
+        XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource);
+        mapperParser.parse();
+      }
+      // Annotation 注解解析
+      else if (resource == null && mapperClass != null) {
+        Class<?> mapperInterface = Resources.classForName(mapperClass);
+        configuration.addMapper(mapperInterface);
+      }
+    }
+    // 省略..
+  }
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+		<!--省略...-->
+    <mappers>
+        <!--注解配置-->
+        <mapper class="com.doublew2w.sbs.mybatis.test.dao.IUserDaoAnno"/>
+    </mappers>
+</configuration>
+```
+
