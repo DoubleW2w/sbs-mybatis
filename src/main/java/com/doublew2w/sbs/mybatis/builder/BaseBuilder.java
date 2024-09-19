@@ -2,8 +2,8 @@ package com.doublew2w.sbs.mybatis.builder;
 
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.type.TypeAliasRegistry;
+import com.doublew2w.sbs.mybatis.type.TypeHandler;
 import com.doublew2w.sbs.mybatis.type.TypeHandlerRegistry;
-import lombok.Getter;
 
 /**
  * 建造者模式：建造者基类
@@ -15,13 +15,11 @@ import lombok.Getter;
 public abstract class BaseBuilder {
   /** 配置类 */
   protected final Configuration configuration;
-  /**
-   * 类型别名注册机
-   */
+
+  /** 类型别名注册机 */
   protected final TypeAliasRegistry typeAliasRegistry;
-  /**
-   * 类型处理器注册机
-   */
+
+  /** 类型处理器注册机 */
   protected final TypeHandlerRegistry typeHandlerRegistry;
 
   public BaseBuilder(Configuration configuration) {
@@ -36,5 +34,30 @@ public abstract class BaseBuilder {
 
   protected Class<?> resolveAlias(String alias) {
     return typeAliasRegistry.resolveAlias(alias);
+  }
+
+  // 根据别名解析 Class 类型别名注册/事务管理器别名
+  protected Class<?> resolveClass(String alias) {
+    if (alias == null) {
+      return null;
+    }
+    try {
+      return resolveAlias(alias);
+    } catch (Exception e) {
+      throw new RuntimeException("Error resolving class. Cause: " + e, e);
+    }
+  }
+
+  protected TypeHandler<?> resolveTypeHandler(
+      Class<?> javaType, Class<? extends TypeHandler<?>> typeHandlerType) {
+    if (typeHandlerType == null) {
+      return null;
+    }
+    TypeHandler<?> handler = typeHandlerRegistry.getMappingTypeHandler(typeHandlerType);
+    if (handler == null) {
+      // not in registry, create a new one
+      handler = typeHandlerRegistry.getInstance(javaType, typeHandlerType);
+    }
+    return handler;
   }
 }

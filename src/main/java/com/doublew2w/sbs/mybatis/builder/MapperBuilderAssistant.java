@@ -1,8 +1,10 @@
 package com.doublew2w.sbs.mybatis.builder;
 
 import com.doublew2w.sbs.mybatis.mapping.*;
+import com.doublew2w.sbs.mybatis.reflection.MetaClass;
 import com.doublew2w.sbs.mybatis.scripting.LanguageDriver;
 import com.doublew2w.sbs.mybatis.session.Configuration;
+import com.doublew2w.sbs.mybatis.type.TypeHandler;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
@@ -65,7 +67,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
       String resultMap,
       Class<?> resultType,
       LanguageDriver lang) {
-    // 给 id加上namespace前缀形成唯一标识
+    // 给 id，resultMap加上namespace前缀形成唯一标识
     id = applyCurrentNamespace(id, false);
     MappedStatement.Builder statementBuilder =
         new MappedStatement.Builder(configuration, id, sqlCommandType, sqlSource, resultType);
@@ -104,11 +106,65 @@ public class MapperBuilderAssistant extends BaseBuilder {
     statementBuilder.resultMaps(resultMaps);
   }
 
+  /**
+   * 注册&lt;ResultMap&gt;信息
+   *
+   * @param id resultId（不带命名空间）
+   * @param type resultMap的type属性
+   * @param resultMappings resultMap下的多个子节点
+   * @return &lt;ResultMap&gt;信息
+   */
   public ResultMap addResultMap(String id, Class<?> type, List<ResultMapping> resultMappings) {
+    // resultMapId
+    id = applyCurrentNamespace(id, false);
     ResultMap.Builder inlineResultMapBuilder =
         new ResultMap.Builder(configuration, id, type, resultMappings);
     ResultMap resultMap = inlineResultMapBuilder.build();
     configuration.addResultMap(resultMap);
     return resultMap;
+  }
+
+  /**
+   * 创建ResultMapping对象
+   *
+   * @param resultType 结果类型
+   * @param property 属性列
+   * @param column 列名
+   * @param flags ID，CONSTRUCTOR
+   * @return 代表&lt;ResultMap&gt;中的一列信息
+   */
+  public ResultMapping buildResultMapping(
+      Class<?> resultType, String property, String column, List<ResultFlag> flags) {
+
+    Class<?> javaTypeClass = resolveResultJavaType(resultType, property, null);
+    TypeHandler<?> typeHandlerInstance = resolveTypeHandler(javaTypeClass, null);
+
+    ResultMapping.Builder builder =
+        new ResultMapping.Builder(configuration, property, column, javaTypeClass)
+            .typeHandler(typeHandlerInstance)
+            .flags(flags);
+    return builder.build();
+  }
+
+  /**
+   * 解析返回类型的java类型
+   *
+   * @param resultType 结果类型
+   * @param property 属性
+   * @param javaType java类型
+   * @return
+   */
+  private Class<?> resolveResultJavaType(Class<?> resultType, String property, Class<?> javaType) {
+    if (javaType == null && property != null) {
+      try {
+        MetaClass metaResultType = MetaClass.forClass(resultType);
+        javaType = metaResultType.getSetterType(property);
+      } catch (Exception ignore) {
+      }
+    }
+    if (javaType == null) {
+      javaType = Object.class;
+    }
+    return javaType;
   }
 }

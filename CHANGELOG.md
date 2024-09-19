@@ -1294,7 +1294,7 @@ public class SqlSessionFactoryBuilder {
 
 
 
-### 创建Configuration对象的过程
+### 创建 Configuration 对象的过程
 
 *XMLConfigBuilder#parse()*
 
@@ -1312,7 +1312,7 @@ public class SqlSessionFactoryBuilder {
   }
 ```
 
-本质上就是解析 Configuration 节点下所有子节点，比如 environments,mappers等。
+本质上就是解析 Configuration 节点下所有子节点，比如 environments, mappers 等。
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -1379,7 +1379,7 @@ private void environmentsElement(Element environments) throws Exception {
 }
 ```
 
-在解析mappers节点时，会利用 XMLMapperBuilder。
+在解析 mappers 节点时，会利用 XMLMapperBuilder。
 
 ```java
   private void mapperElement(Element mappers) throws Exception {
@@ -1395,7 +1395,7 @@ private void environmentsElement(Element environments) throws Exception {
   }
 ```
 
-### Mapper映射文件配置
+### Mapper 映射文件配置
 
 解析每一个类型的标签
 
@@ -1480,10 +1480,10 @@ private void environmentsElement(Element environments) throws Exception {
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409180500020.png"/>
 
-| **注解方式**          | **xml方式**           |
+| **注解方式**          | **xml 方式**           |
 | --------------------- | --------------------- |
 | @Select               | `<select>`            |
-| @Select("SQL语句")    | SQL语句               |
+| @Select("SQL 语句")    | SQL 语句               |
 | 方法名                | 标签唯一标识          |
 | 返回类型              | 返回类型              |
 | 入参类型              | 入参类型              |
@@ -1527,7 +1527,7 @@ public class MapperRegistry {
 
 
 
-添加mapper接口的扫描，和xml文件的配置
+添加 mapper 接口的扫描，和 xml 文件的配置
 
 ```java
 public class XMLConfigBuilder extends BaseBuilder {  
@@ -1570,3 +1570,170 @@ public class XMLConfigBuilder extends BaseBuilder {
 </configuration>
 ```
 
+## ResultMap 映射参数配置
+
+> 代码分支：[13-result-map-parse-use](https://github.com/DoubleW2w/sbs-mybatis/tree/13-result-map-parse-use)
+
+### S
+
+ResultMap 的作用是什么呢？
+
+1. 字段与属性的映射：数据库字段与 Java 对象属性的对应关系, 比如 把数据库表中的下划线的字段名称，映射成 Java 代码中的驼峰字段。当然你可以用在查询语句上使用 `as` 语句
+2. 支持复杂关系映射：一对多，和一对一的关系
+
+对应的就是 `<resultMap>` 标签，那里面有什么东西呢？
+
+```xml
+<!-- 
+        resultMap –结果映射，用来描述如何从数据库结果集映射到你想要的对象。
+
+        1.type 对应类型，可以是javabean, 也可以是其它
+        2.id 必须唯一， 用于标示这个resultMap的唯一性，在使用resultMap的时候，就是通过id指定
+     -->
+<resultMap type="" id="">
+  <!-- id, 唯一性，注意啦，这个id用于标示这个javabean对象的唯一性， 不一定会是数据库的主键（不要把它理解为数据库对应表的主键） 
+            property属性对应javabean的属性名，column对应数据库表的列名
+            （这样，当javabean的属性与数据库对应表的列名不一致的时候，就能通过指定这个保持正常映射了）
+  -->
+  <id property="" column=""/>
+  <!-- result与id相比， 对应普通属性 -->    
+  <result property="" column=""/>
+  <!-- 
+            聚集元素用来处理“一对多”的关系。需要指定映射的Java实体类的属性，属性的javaType（一般为ArrayList）；列表中对象的类型ofType（Java实体类）；对应的数据库表的列名称；
+
+            collection，对应javabean中容器类型, 是实现一对多的关键 
+            property 为javabean中容器对应字段名
+            column 为体现在数据库中列名
+            ofType 就是指定javabean中容器指定的类型
+
+            不同情况需要告诉 MyBatis 如何加载一个聚集。MyBatis 可以用两种方式加载：
+                1. select: 执行一个其它映射的SQL 语句返回一个Java实体类型。较灵活；
+                2. resultMap: 使用一个嵌套的结果映射来处理通过join查询结果集，映射成Java实体类型。
+        -->
+  <collection property="" column="" ofType=""></collection>
+  <!-- 
+            联合元素用来处理“一对一”的关系。需要指定映射的Java实体类的属性，属性的javaType（通常MyBatis 自己会识别）。对应的数据库表的列名称。如果想覆写的话返回结果的值，需要指定typeHandler。
+
+            association 为关联关系，是实现N对一的关键。
+            property 为javabean中容器对应字段名
+            column 为体现在数据库中列名
+            javaType 指定关联的类型
+
+            不同情况需要告诉MyBatis 如何加载一个联合。MyBatis可以用两种方式加载：
+                1. select: 执行一个其它映射的SQL 语句返回一个Java实体类型。较灵活；
+                2. resultMap: 使用一个嵌套的结果映射来处理，通过join查询结果集，映射成Java实体类型。
+         -->
+  <association property="" column="" javaType=""></association>
+</resultMap>
+```
+
+### T
+
+映射参数的解析过程，主要以循环解析 `resultMap` 的标签集合，摘取核心的 property、column 字段构建出 `ResultMapping` 结果映射类，将解析出来的 `ResultMapping` 集合放进 `Configuration` 配置项的 `Map<String, ResultMap> resultMaps` 的结果映射中。
+
+最后在利用 `SqlSession` 进行结果封装时，从 `Configuration` 中取出。
+
+### A
+
+找到解析语句的地方
+
+```java
+public class XMLMapperBuilder extends BaseBuilder {
+  // 省略...
+  private void configurationElement(Element element) {
+    // 1.配置namespace
+    String namespace = element.attributeValue("namespace");
+    if (namespace.isEmpty()) {
+      throw new RuntimeException("Mapper's namespace cannot be empty");
+    }
+    builderAssistant.setCurrentNamespace(namespace);
+
+    // 2. 解析resultMap(添加部分)
+    resultMapElements(element.elements("resultMap"));
+
+    // 2.配置select|insert|update|delete
+    List<Element> list = new ArrayList<>();
+    list.addAll(element.elements("select"));
+    list.addAll(element.elements("insert"));
+    list.addAll(element.elements("update"));
+    list.addAll(element.elements("delete"));
+    buildStatementFromContext(list);
+  }
+  // 省略...
+}
+```
+
+我们知道一个 MapperXML 文件中可能存在多个 `<resultMap></resultMap>` 标签，所以循环去解析。
+
+```java
+  private void resultMapElements(List<Element> resultMaps) {
+    for (Element element : resultMaps) {
+      try {
+        resultMapElement(element, Collections.emptyList());
+      } catch (Exception ignore) {
+      }
+    }
+  }
+```
+
+在解析上：
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409192031798.png"/>
+
+
+
+在使用上，进行结果封装时
+
+```java
+public class DefaultResultSetHandler implements ResultSetHandler {
+  // 省略...
+  private Object getRowValue(ResultSetWrapper rsw, ResultMap resultMap) throws SQLException {
+    // 根据返回类型，实例化对象
+    Object resultObject = createResultObject(rsw, resultMap, null);
+    if (resultObject != null && !typeHandlerRegistry.hasTypeHandler(resultMap.getType())) {
+      final MetaObject metaObject = configuration.newMetaObject(resultObject);
+      // 自动映射：把每列的值都赋到对应的字段上
+      applyAutomaticMappings(rsw, resultMap, metaObject, null);
+      // Map映射：根据映射类型赋值到字段
+      applyPropertyMappings(rsw, resultMap, metaObject, null);
+    }
+    return resultObject;
+  }
+  // 省略...
+
+  private boolean applyPropertyMappings(
+    ResultSetWrapper rsw, ResultMap resultMap, MetaObject metaObject, String columnPrefix)
+    throws SQLException {
+    final List<String> mappedColumnNames = rsw.getMappedColumnNames(resultMap, columnPrefix);
+    boolean foundValues = false;
+    final List<ResultMapping> propertyMappings = resultMap.getPropertyResultMappings();
+    for (ResultMapping propertyMapping : propertyMappings) {
+      final String column = propertyMapping.getColumn();
+      if (column != null && mappedColumnNames.contains(column.toUpperCase(Locale.ENGLISH))) {
+        // 获取值
+        final TypeHandler<?> typeHandler = propertyMapping.getTypeHandler();
+        Object value = typeHandler.getResult(rsw.getResultSet(), column);
+        // 设置值
+        final String property = propertyMapping.getProperty();
+        if (value != NO_VALUE && property != null && value != null) {
+          // 通过反射工具类设置属性值
+          metaObject.setValue(property, value);
+          foundValues = true;
+        }
+      }
+    }
+    return foundValues;
+  }
+  // 省略...
+}
+```
+
+- 根据 ResultMap 获取到每一列的属性 `List<ResultMapping> propertyMappings`
+- 根据列名 `column`、类型处理器 `typeHandler` 获取到对应的数据库查询值
+- 通过反射进行调用 setter 进行设置属性值 `metaObject.setValue(property, value);`
+
+### R
+
+在整个解析的过程中，一个 ResultMap 对应多个 ResultMapping 的关系，把每一条映射都存处理成 ResultMapping 信息，都存放到配置项中。
+
+在整个使用上，普通的对象默认按照对象字段即可封装，而存在「下划线」的情况，则要找到映射关系进行匹配处理，最终返回统一的封装结果处理。

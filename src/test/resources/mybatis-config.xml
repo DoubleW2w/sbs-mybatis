@@ -17,8 +17,9 @@
     </environments>
     <mappers>
         <!-- xml配置 -->
-        <mapper resource="mapper/UserMapper.xml"/>
+        <!-- <mapper resource="mapper/UserMapper.xml"/> -->
+        <mapper resource="mapper/ActivityMapper.xml"/>
         <!--注解配置-->
-        <mapper class="com.doublew2w.sbs.mybatis.test.dao.IUserDaoAnno"/>
+        <!-- <mapper class="com.doublew2w.sbs.mybatis.test.dao.IUserDaoAnno"/> -->
     </mappers>
 </configuration>
