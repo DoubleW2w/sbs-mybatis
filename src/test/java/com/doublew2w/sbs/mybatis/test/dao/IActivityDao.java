@@ -9,4 +9,6 @@ import com.doublew2w.sbs.mybatis.test.po.Activity;
  */
 public interface IActivityDao {
   Activity queryActivityById(Long activityId);
+
+  Integer insert(Activity activity);
 }

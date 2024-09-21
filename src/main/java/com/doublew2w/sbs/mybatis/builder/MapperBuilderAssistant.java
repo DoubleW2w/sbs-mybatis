@@ -1,5 +1,6 @@
 package com.doublew2w.sbs.mybatis.builder;
 
+import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
 import com.doublew2w.sbs.mybatis.mapping.*;
 import com.doublew2w.sbs.mybatis.reflection.MetaClass;
 import com.doublew2w.sbs.mybatis.scripting.LanguageDriver;
@@ -39,6 +40,14 @@ public class MapperBuilderAssistant extends BaseBuilder {
     this.resource = resource;
   }
 
+  /**
+   * 将当前 Mapper 的命名空间应用于给定的基础字符串（base），生成一个完整的 ID，用于注册 SQL 语句或其他映射信息。
+   *
+   * @param base 基础字符串
+   * @param isReference 决定了该方法是否用于引用其他 Mapper 的 SQL 映射。 true - 在引用其他 Mapper 时使用的。MyBatis 需要保持原始 ID
+   *     的格式，不添加当前 Mapper 的命名空间。 false - 返回的 ID 会包含当前 Mapper 的命名空间。
+   * @return
+   */
   public String applyCurrentNamespace(String base, boolean isReference) {
     if (base == null) {
       return null;
@@ -54,7 +63,6 @@ public class MapperBuilderAssistant extends BaseBuilder {
             "Dots are not allowed in element names, please remove it from " + base);
       }
     }
-
     return currentNamespace + "." + base;
   }
 
@@ -66,11 +74,18 @@ public class MapperBuilderAssistant extends BaseBuilder {
       Class<?> parameterType,
       String resultMap,
       Class<?> resultType,
+      KeyGenerator keyGenerator,
+      String keyProperty,
       LanguageDriver lang) {
     // 给 id，resultMap加上namespace前缀形成唯一标识
     id = applyCurrentNamespace(id, false);
+
     MappedStatement.Builder statementBuilder =
-        new MappedStatement.Builder(configuration, id, sqlCommandType, sqlSource, resultType);
+        new MappedStatement.Builder(configuration, id, sqlCommandType, sqlSource, resultType)
+            .resource(resource)
+            .keyGenerator(keyGenerator)
+            .keyProperty(keyProperty);
+
     // 结果映射，给 MappedStatement#resultMaps
     setStatementResultMap(resultMap, resultType, statementBuilder);
 

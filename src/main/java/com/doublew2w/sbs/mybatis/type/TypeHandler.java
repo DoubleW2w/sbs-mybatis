@@ -21,4 +21,6 @@ public interface TypeHandler<T> {
       throws SQLException;
 
   T getResult(ResultSet resultSet, String columnName) throws SQLException;
+
+  T getResult(ResultSet rs, int columnIndex) throws SQLException;
 }

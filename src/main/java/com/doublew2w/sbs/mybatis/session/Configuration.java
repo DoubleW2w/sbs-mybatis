@@ -6,6 +6,7 @@ import com.doublew2w.sbs.mybatis.datasource.pooled.PooledDataSourceFactory;
 import com.doublew2w.sbs.mybatis.datasource.unpooled.UnpooledDataSourceFactory;
 import com.doublew2w.sbs.mybatis.executor.Executor;
 import com.doublew2w.sbs.mybatis.executor.SimpleExecutor;
+import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
 import com.doublew2w.sbs.mybatis.executor.parameter.ParameterHandler;
 import com.doublew2w.sbs.mybatis.executor.resultset.DefaultResultSetHandler;
 import com.doublew2w.sbs.mybatis.executor.resultset.ResultSetHandler;
@@ -50,6 +51,9 @@ public class Configuration {
 
   /** 映射的语句，存在Map里 */
   protected final Map<String, MappedStatement> mappedStatements = new HashMap<>();
+
+  @Getter protected final Map<String, KeyGenerator> keyGenerators = new HashMap<>();
+
   // 结果映射，存在Map里
   protected final Map<String, ResultMap> resultMaps = new HashMap<>();
   // 类型别名注册机
@@ -63,6 +67,7 @@ public class Configuration {
   protected ObjectWrapperFactory objectWrapperFactory = new DefaultObjectWrapperFactory();
 
   protected final Set<String> loadedResources = new HashSet<>();
+  @Setter protected boolean useGeneratedKeys;
   @Getter protected String databaseId;
 
   public Configuration() {
@@ -159,5 +164,21 @@ public class Configuration {
 
   public void addResultMap(ResultMap resultMap) {
     resultMaps.put(resultMap.getId(), resultMap);
+  }
+
+  public boolean isUseGeneratedKeys() {
+    return useGeneratedKeys;
+  }
+
+  public void addKeyGenerator(String id, KeyGenerator keyGenerator) {
+    keyGenerators.put(id, keyGenerator);
+  }
+
+  public boolean hasKeyGenerator(String id) {
+    return keyGenerators.containsKey(id);
+  }
+
+  public KeyGenerator getKeyGenerator(String id) {
+    return keyGenerators.get(id);
   }
 }

@@ -6,6 +6,9 @@ import com.doublew2w.sbs.mybatis.annotation.Select;
 import com.doublew2w.sbs.mybatis.annotation.Update;
 import com.doublew2w.sbs.mybatis.binding.MapperMethod;
 import com.doublew2w.sbs.mybatis.builder.MapperBuilderAssistant;
+import com.doublew2w.sbs.mybatis.executor.keygen.Jdbc3KeyGenerator;
+import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
+import com.doublew2w.sbs.mybatis.executor.keygen.NoKeyGenerator;
 import com.doublew2w.sbs.mybatis.mapping.SqlCommandType;
 import com.doublew2w.sbs.mybatis.mapping.SqlSource;
 import com.doublew2w.sbs.mybatis.scripting.LanguageDriver;
@@ -69,6 +72,16 @@ public class MapperAnnotationBuilder {
     if (sqlSource != null) {
       final String mappedStatementId = type.getName() + "." + method.getName();
       SqlCommandType sqlCommandType = getSqlCommandType(method);
+      KeyGenerator keyGenerator;
+      String keyProperty = "id";
+      if (SqlCommandType.INSERT.equals(sqlCommandType)
+          || SqlCommandType.UPDATE.equals(sqlCommandType)) {
+        keyGenerator =
+            configuration.isUseGeneratedKeys() ? new Jdbc3KeyGenerator() : new NoKeyGenerator();
+      } else {
+        keyGenerator = new NoKeyGenerator();
+      }
+
       boolean isSelect = sqlCommandType == SqlCommandType.SELECT;
       String resultMapId = null;
       if (isSelect) {
@@ -82,6 +95,8 @@ public class MapperAnnotationBuilder {
           parameterTypeClass,
           resultMapId,
           getReturnType(method),
+          keyGenerator,
+          keyProperty,
           languageDriver);
     }
   }

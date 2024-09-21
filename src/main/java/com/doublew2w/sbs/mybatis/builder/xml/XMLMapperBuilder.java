@@ -151,7 +151,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     return builderAssistant.buildResultMapping(resultType, property, column, flags);
   }
 
-  // 配置select|insert|update|delete
+  /** 配置select|insert|update|delete */
   private void buildStatementFromContext(List<Element> list) {
     for (Element element : list) {
       final XMLStatementBuilder statementParser =

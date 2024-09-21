@@ -1737,3 +1737,230 @@ public class DefaultResultSetHandler implements ResultSetHandler {
 在整个解析的过程中，一个 ResultMap 对应多个 ResultMapping 的关系，把每一条映射都存处理成 ResultMapping 信息，都存放到配置项中。
 
 在整个使用上，普通的对象默认按照对象字段即可封装，而存在「下划线」的情况，则要找到映射关系进行匹配处理，最终返回统一的封装结果处理。
+
+
+
+## selectKey 自增索引配置
+
+> 代码分支：[14-select-key-parse-use](https://github.com/DoubleW2w/sbs-mybatis/tree/14-select-key-parse-use)
+
+### S
+
+当我们插入一条数据后，想要获取到该记录的自增主键值，在某些情况需要用到这个自增主键值来做业务上的处理。
+
+如果没有这个需求的话，当我们执行插入操作后，还要进行一次额外的查询操作来获取自增主键，这样会使代码变的冗长。
+
+### T
+
+本节要实现的是在执行插入 SQL 后要返回此条插入语句后的自增索引。
+
+```xml
+<selectKey>
+  keyProperty="id"
+  resultType="int"
+  order="BEFORE"
+  <!-- 与前面相同，MyBatis 支持 STATEMENT，PREPARED 和 CALLABLE 语句的映射类型，分别代表 PreparedStatement 和 CallableStatement 类型。 -->
+  statementType="PREPARED">
+</selectKey>
+```
+
+- keyProperty: selectKey 语句结果应该被设置的目标属性。如果希望得到多个生成的列，也可以是逗号分隔的属性名称列表。
+- resultType: 结果的类型。MyBatis 通常可以推算出来，但是为了更加确定写上也不会有什么问题。
+- order: 可以被设置为 BEFORE 或 AFTER。
+  - 如果设置为 BEFORE，那么它会首先选择主键，设置 keyProperty 然后执行插入语句。
+  - 如果设置为 AFTER，那么先执行插入语句，然后是 selectKey 元素
+- statementType: 语句的映射类型，在 Mybatis 中支持 STATEMENT、PREPARED、CALLABLE。
+
+### A
+
+#### 解析 SelectKey
+
+```java
+public void parseStatementNode() {
+  //省略...
+  // 获取默认语言驱动器
+    LanguageDriver langDriver = configuration.getLanguageRegistry().getDefaultDriver();
+  
+  // Parse selectKey after includes and remove them.
+  processSelectKeyNodes(id, parameterTypeClass, langDriver);
+
+  // 属性标记【仅对 insert 有用】, MyBatis 会通过 getGeneratedKeys 或者通过 insert 语句的 selectKey 子元素设置它的值
+  String keyProperty = element.attributeValue("keyProperty");
+
+  KeyGenerator keyGenerator;
+  String keyStatementId = id + SelectKeyGenerator.SELECT_KEY_SUFFIX;
+  keyStatementId = builderAssistant.applyCurrentNamespace(keyStatementId, true);
+  // 获取主键生成器
+  if (configuration.hasKeyGenerator(keyStatementId)) {
+    keyGenerator = configuration.getKeyGenerator(keyStatementId);
+  } else {
+    keyGenerator =
+      configuration.isUseGeneratedKeys() && SqlCommandType.INSERT.equals(sqlCommandType)
+      ? new Jdbc3KeyGenerator()
+      : new NoKeyGenerator();
+  }
+  //省略...
+}
+```
+
+真正解析 SelectKey 内容的方法在如下 parseSelectKeyNode
+
+```java
+private void parseSelectKeyNode(
+  String id, Element nodeToHandle, Class<?> parameterTypeClass, LanguageDriver langDriver) {
+  String resultType = nodeToHandle.attributeValue("resultType");
+  Class<?> resultTypeClass = resolveClass(resultType);
+  String keyProperty = nodeToHandle.attributeValue("keyProperty");
+  String keyColumn = nodeToHandle.attributeValue("keyColumn");
+  boolean executeBefore = "BEFORE".equals(nodeToHandle.attributeValue("order", "AFTER"));
+
+  // defaults
+  String resultMap = null;
+  KeyGenerator keyGenerator = new NoKeyGenerator();
+
+  // 解析成SqlSource，DynamicSqlSource/RawSqlSource
+  SqlSource sqlSource =
+    langDriver.createSqlSource(configuration, nodeToHandle, parameterTypeClass);
+  SqlCommandType sqlCommandType = SqlCommandType.SELECT;
+
+  // 调用助手类
+  builderAssistant.addMappedStatement(
+    id,
+    sqlSource,
+    sqlCommandType,
+    parameterTypeClass,
+    resultMap,
+    resultTypeClass,
+    keyGenerator,
+    keyProperty,
+    langDriver);
+
+  id = builderAssistant.applyCurrentNamespace(id, false);
+
+  // 存放键值生成器配置
+  MappedStatement keyStatement = configuration.getMappedStatement(id);
+  configuration.addKeyGenerator(id, new SelectKeyGenerator(keyStatement, executeBefore));
+}
+```
+
+- 解析 `selectKey` 标签的内容
+- 默认 KeyGenerator 为 NoKeyGenerator 类型
+- 通过助手类注册映射语句，不过与之前的不同的是携带了「keyGenerator」和「keyProperty」信息。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/Mybatis%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-13-%E8%A7%A3%E6%9E%90%E5%B9%B6%E4%BD%BF%E7%94%A8selectKey%E6%A0%87%E7%AD%BE.drawio-1.svg"/>
+
+
+
+#### 使用 SelectKey
+
+```java
+public class Configuration {  
+  //..省略...
+  public StatementHandler newStatementHandler(
+    Executor executor,
+    MappedStatement mappedStatement,
+    Object parameterObject,
+    RowBounds rowBounds,
+    ResultHandler resultHandler,
+    BoundSql boundSql) {
+    return new PreparedStatementHandler(
+      executor, mappedStatement, parameterObject, resultHandler, boundSql, rowBounds);
+  }
+  //..省略...
+}
+
+public class PreparedStatementHandler extends BaseStatementHandler {
+  //..省略...
+  public int update(Statement statement) throws SQLException {
+    PreparedStatement ps = (PreparedStatement) statement;
+    ps.execute();
+    int rows = ps.getUpdateCount();
+    Object parameterObject = boundSql.getParameterObject();
+    KeyGenerator keyGenerator = mappedStatement.getKeyGenerator();
+    keyGenerator.processAfter(executor, mappedStatement, ps, parameterObject);
+    return rows;
+  }
+  //省略
+}
+```
+
+- 执行 update 语句
+- 获取到 update 语句绑定的参数对象 `parameterObject` 和 主键生成器 `keyGenerator`
+
+```java
+private void processGeneratedKeys(Executor executor, MappedStatement ms, Object parameter) {
+    try {
+      if (parameter != null && keyStatement != null && keyStatement.getKeyProperties() != null) {
+        String[] keyProperties = keyStatement.getKeyProperties();
+        final Configuration configuration = ms.getConfiguration();
+        final MetaObject metaParam = configuration.newMetaObject(parameter);
+        // Do not close keyExecutor.
+        // The transaction will be closed by parent executor.
+        Executor keyExecutor = configuration.newExecutor(executor.getTransaction());
+        List<Object> values = keyExecutor.query(keyStatement, parameter, RowBounds.DEFAULT, Executor.NO_RESULT_HANDLER);
+        if (values.size() == 0) {
+          throw new RuntimeException("SelectKey returned no data.");
+        } else if (values.size() > 1) {
+          throw new RuntimeException("SelectKey returned more than one value.");
+        } else {
+          MetaObject metaResult = configuration.newMetaObject(values.get(0));
+          if (keyProperties.length == 1) {
+            if (metaResult.hasGetter(keyProperties[0])) {
+              setValue(metaParam, keyProperties[0], metaResult.getValue(keyProperties[0]));
+            } else {
+              // no getter for the property - maybe just a single value object
+              // so try that
+              setValue(metaParam, keyProperties[0], values.get(0));
+            }
+          } else {
+            handleMultipleProperties(keyProperties, metaParam, metaResult);
+          }
+        }
+      }
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          "Error selecting key or setting result to parameter object. Cause: " + e, e);
+    }
+```
+
+- `SELECT LAST_INSERT_ID()` 语句执行，并将结果设置到结果的属性列上。
+
+### R
+
+1. 由于是在同一个操作下，处理两条 SQL，分别是插入和返回索引值。那么这两条 SQL 其实要在同一个链接下才能正确的获取到结果，也就是保证了一个事务的特性。
+
+*JdbcTransaction.java*
+
+```java
+public Connection getConnection() throws SQLException {
+    // 多个SQL在同一个JDBC连接下，才能完成事务特性
+    if (null != connection) {
+        return connection;
+    }
+    connection = dataSource.getConnection();
+    connection.setTransactionIsolation(level.getLevel());
+    connection.setAutoCommit(autoCommit);
+    return connection;
+}
+```
+
+2. 在原有的 Mapper XML 对各类标签语句的解析中，对 insert 操作进行扩展，添加 selectKey 标签的解析、执行、结果封装。把最终的插入索引结果返回到入参对象的对应属性字段上。
+
+```java
+2024-09-21 21:24:01 INFO  c.d.s.m.builder.SqlSourceBuilder - 构建参数映射 property：activityId propertyType：class java.lang.Long
+2024-09-21 21:24:01 INFO  c.d.s.m.builder.SqlSourceBuilder - 构建参数映射 property：activityId propertyType：class java.lang.Long
+2024-09-21 21:24:01 INFO  c.d.s.m.builder.SqlSourceBuilder - 构建参数映射 property：activityName propertyType：class java.lang.String
+2024-09-21 21:24:01 INFO  c.d.s.m.builder.SqlSourceBuilder - 构建参数映射 property：activityDesc propertyType：class java.lang.String
+2024-09-21 21:24:01 INFO  c.d.sbs.mybatis.binding.MapperProxy - into invoke(), mapperInterface: com.doublew2w.sbs.mybatis.test.dao.IActivityDao, cachedMapperMethod: insert
+2024-09-21 21:24:01 INFO  c.d.s.mybatis.executor.BaseExecutor - executing an update
+2024-09-21 21:24:02 INFO  c.d.s.m.s.d.DefaultParameterHandler - 根据每个ParameterMapping中的TypeHandler设置对应的参数信息 value：10007
+2024-09-21 21:24:02 INFO  c.d.s.m.s.d.DefaultParameterHandler - 根据每个ParameterMapping中的TypeHandler设置对应的参数信息 value："测试活动"
+2024-09-21 21:24:02 INFO  c.d.s.m.s.d.DefaultParameterHandler - 根据每个ParameterMapping中的TypeHandler设置对应的参数信息 value："测试数据插入"
+2024-09-21 21:24:02 INFO  c.d.s.mybatis.executor.BaseExecutor - executing an query
+2024-09-21 21:24:02 INFO  c.d.s.m.e.s.PreparedStatementHandler - 执行查询 query 
+2024-09-21 21:24:02 INFO  c.d.s.m.e.r.DefaultResultSetHandler - 正在处理结果集...
+2024-09-21 21:24:02 INFO  c.d.s.m.test.IActivityDaoApiTest - 测试结果：count：1 idx：20
+```
+

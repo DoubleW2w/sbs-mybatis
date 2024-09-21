@@ -1,6 +1,7 @@
 package com.doublew2w.sbs.mybatis.executor.statement;
 
 import com.doublew2w.sbs.mybatis.executor.Executor;
+import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.session.ResultHandler;
@@ -56,6 +57,10 @@ public class PreparedStatementHandler extends BaseStatementHandler {
   public int update(Statement statement) throws SQLException {
     PreparedStatement ps = (PreparedStatement) statement;
     ps.execute();
-    return ps.getUpdateCount();
+    int rows = ps.getUpdateCount();
+    Object parameterObject = boundSql.getParameterObject();
+    KeyGenerator keyGenerator = mappedStatement.getKeyGenerator();
+    keyGenerator.processAfter(executor, mappedStatement, ps, parameterObject);
+    return rows;
   }
 }

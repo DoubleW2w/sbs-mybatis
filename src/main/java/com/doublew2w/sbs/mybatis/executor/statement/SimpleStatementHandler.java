@@ -1,6 +1,9 @@
 package com.doublew2w.sbs.mybatis.executor.statement;
 
 import com.doublew2w.sbs.mybatis.executor.Executor;
+import com.doublew2w.sbs.mybatis.executor.keygen.Jdbc3KeyGenerator;
+import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
+import com.doublew2w.sbs.mybatis.executor.keygen.SelectKeyGenerator;
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.session.ResultHandler;
@@ -44,8 +47,22 @@ public class SimpleStatementHandler extends BaseStatementHandler {
   @Override
   public int update(Statement statement) throws SQLException {
     String sql = boundSql.getSql();
-    statement.execute(sql);
-    return statement.getUpdateCount();
+    Object parameterObject = boundSql.getParameterObject();
+    KeyGenerator keyGenerator = mappedStatement.getKeyGenerator();
+    int rows;
+    if (keyGenerator instanceof Jdbc3KeyGenerator) {
+      statement.execute(sql, Statement.RETURN_GENERATED_KEYS);
+      rows = statement.getUpdateCount();
+      keyGenerator.processAfter(executor, mappedStatement, statement, parameterObject);
+    } else if (keyGenerator instanceof SelectKeyGenerator) {
+      statement.execute(sql);
+      rows = statement.getUpdateCount();
+      keyGenerator.processAfter(executor, mappedStatement, statement, parameterObject);
+    } else {
+      statement.execute(sql);
+      rows = statement.getUpdateCount();
+    }
+    return rows;
   }
 
   @Override

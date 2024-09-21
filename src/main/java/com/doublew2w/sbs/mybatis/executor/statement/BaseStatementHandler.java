@@ -1,6 +1,7 @@
 package com.doublew2w.sbs.mybatis.executor.statement;
 
 import com.doublew2w.sbs.mybatis.executor.Executor;
+import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
 import com.doublew2w.sbs.mybatis.executor.parameter.ParameterHandler;
 import com.doublew2w.sbs.mybatis.executor.resultset.ResultSetHandler;
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
@@ -55,6 +56,7 @@ public abstract class BaseStatementHandler implements StatementHandler {
     this.mappedStatement = mappedStatement;
     // 因为 update 不会传入 boundSql 参数，所以这里要做初始化处理
     if (boundSql == null) {
+      generateKeys(parameterObject);
       boundSql = mappedStatement.getBoundSql(parameterObject);
     }
     this.boundSql = boundSql;
@@ -82,5 +84,10 @@ public abstract class BaseStatementHandler implements StatementHandler {
     } catch (Exception e) {
       throw new RuntimeException("Error preparing statement.  Cause: " + e, e);
     }
+  }
+
+  protected void generateKeys(Object parameter) {
+    KeyGenerator keyGenerator = mappedStatement.getKeyGenerator();
+    keyGenerator.processBefore(executor, mappedStatement, null, parameter);
   }
 }

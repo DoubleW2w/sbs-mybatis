@@ -10,6 +10,14 @@
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
+    <insert id="insert" parameterType="com.doublew2w.sbs.mybatis.test.po.Activity">
+        INSERT INTO activity
+        (activity_id, activity_name, activity_desc, create_time, update_time)
+        VALUES (#{activityId}, #{activityName}, #{activityDesc}, now(), now())
+        <selectKey keyProperty="id" order="AFTER" resultType="long">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
 
     <select id="queryActivityById" parameterType="java.lang.Long" resultMap="activityMap">
         SELECT activity_id, activity_name, activity_desc, create_time, update_time

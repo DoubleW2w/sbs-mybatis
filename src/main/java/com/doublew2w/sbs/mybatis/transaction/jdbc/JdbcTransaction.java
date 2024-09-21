@@ -2,10 +2,9 @@ package com.doublew2w.sbs.mybatis.transaction.jdbc;
 
 import com.doublew2w.sbs.mybatis.session.TransactionIsolationLevel;
 import com.doublew2w.sbs.mybatis.transaction.Transaction;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import javax.sql.DataSource;
 
 /**
  * @author: DoubleW2w
@@ -31,6 +30,9 @@ public class JdbcTransaction implements Transaction {
 
   @Override
   public Connection getConnection() throws SQLException {
+    if (null != connection) {
+      return connection;
+    }
     connection = dataSource.getConnection();
     connection.setTransactionIsolation(level.getLevel());
     connection.setAutoCommit(autoCommit);

@@ -27,6 +27,9 @@ public final class TypeHandlerRegistry {
     register(String.class, JdbcType.VARCHAR, new StringTypeHandler());
     register(Date.class, new DateTypeHandler());
   }
+  public void register(JdbcType jdbcType, TypeHandler<?> handler) {
+    JDBC_TYPE_HANDLER_MAP.put(jdbcType, handler);
+  }
 
   private void register(Type javaType, TypeHandler<?> handler) {
     register(javaType, null, handler);

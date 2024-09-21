@@ -1,5 +1,8 @@
 package com.doublew2w.sbs.mybatis.mapping;
 
+import com.doublew2w.sbs.mybatis.executor.keygen.Jdbc3KeyGenerator;
+import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
+import com.doublew2w.sbs.mybatis.executor.keygen.NoKeyGenerator;
 import com.doublew2w.sbs.mybatis.scripting.LanguageDriver;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import java.util.List;
@@ -18,6 +21,9 @@ import lombok.Setter;
 public class MappedStatement {
   private Configuration configuration;
 
+  /** 资源路径 */
+  private String resource;
+
   /** 映射语句id */
   private String id;
 
@@ -35,6 +41,15 @@ public class MappedStatement {
 
   /** 结果映射 */
   private List<ResultMap> resultMaps;
+
+  /** 主键生成器 */
+  private KeyGenerator keyGenerator;
+
+  /** 主键属性 */
+  private String[] keyProperties;
+
+  /** 主键列 */
+  private String[] keyColumns;
 
   MappedStatement() {}
 
@@ -60,6 +75,10 @@ public class MappedStatement {
       mappedStatement.sqlSource = sqlSource;
       mappedStatement.resultType = resultType;
       mappedStatement.lang = configuration.getDefaultScriptingLanguageInstance();
+      mappedStatement.keyGenerator =
+          configuration.isUseGeneratedKeys() && SqlCommandType.INSERT.equals(sqlCommandType)
+              ? Jdbc3KeyGenerator.INSTANCE
+              : NoKeyGenerator.INSTANCE;
     }
 
     public String id() {
@@ -71,10 +90,39 @@ public class MappedStatement {
       return this;
     }
 
+    public Builder resource(String resource) {
+      mappedStatement.resource = resource;
+      return this;
+    }
+
+    public Builder keyGenerator(KeyGenerator keyGenerator) {
+      mappedStatement.keyGenerator = keyGenerator;
+      return this;
+    }
+
+    public Builder keyProperty(String keyProperty) {
+      mappedStatement.keyProperties = delimitedStringToArray(keyProperty);
+      return this;
+    }
+
+    public Builder keyColumn(String keyColumn) {
+      mappedStatement.keyColumns = delimitedStringToArray(keyColumn);
+      return this;
+    }
+
     public MappedStatement build() {
       assert mappedStatement.configuration != null;
       assert mappedStatement.id != null;
       return mappedStatement;
+    }
+  }
+
+  /** 分割字符串 */
+  private static String[] delimitedStringToArray(String in) {
+    if (in == null || in.trim().length() == 0) {
+      return null;
+    } else {
+      return in.split(",");
     }
   }
 }

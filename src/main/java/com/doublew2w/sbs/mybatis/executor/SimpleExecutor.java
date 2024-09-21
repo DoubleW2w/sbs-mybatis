@@ -57,7 +57,7 @@ public class SimpleExecutor extends BaseExecutor {
       // 新建一个 StatementHandler
       StatementHandler handler =
           configuration.newStatementHandler(
-              this, ms, parameter, rowBounds, resultHandler, boundSql);
+              wrapper, ms, parameter, rowBounds, resultHandler, boundSql);
       Connection connection = transaction.getConnection();
       // 准备语句
       stmt = prepareStatement(handler);
