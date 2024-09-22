@@ -1,10 +1,9 @@
-package com.doublew2w.sbs.mybatis.mapping;
+package com.doublew2w.sbs.mybatis.builder;
 
 import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.ParameterMapping;
 import com.doublew2w.sbs.mybatis.mapping.SqlSource;
 import com.doublew2w.sbs.mybatis.session.Configuration;
-
 import java.util.List;
 
 /**

@@ -1964,3 +1964,118 @@ public Connection getConnection() throws SQLException {
 2024-09-21 21:24:02 INFO  c.d.s.m.test.IActivityDaoApiTest - 测试结果：count：1 idx：20
 ```
 
+## 解析含标签的动态 SQL 语句
+
+> 代码分支：[15-dynamic-label-sql-parse](https://github.com/DoubleW2w/sbs-mybatis/tree/15-dynamic-label-sql-parse)
+
+### S
+
+我们知道在 Mybatis 中存在很多动态语句标签，`if`, `foreach`, `choose`, `where` 等，不仅如此还要根据参数对象的字段「判断情况」才能决定是否要拼接 SQL 语句。
+
+### T
+
+扩充对动态 SQL 的处理，最终让 ORM 框架可以配置拼装 SQL 语句。
+
+### A
+
+在前面其实完成的是静态 SQL 语句 `RawSqlSource` 的解析，由此创建出对应的 SqlSource 对象。因此需要实现一个 `DynamicSqlSource` 来完成动态 SQL 的解析。
+
+结合上节 `<selectKey>` 标签的思路，也是完成识别标签，然后解析标签属性，最后完成sql的运行，只不过 `<selectKey>` 标签是存在于 `<insert>` 标签内部，所以在解析 `<insert>` 标签以后，进一步解析 `<selectKey>` 标签。而本节的动态Sql标签，则会存在于 `<insert>`,`<update>`,`<delete>`,`<select>` 中，所以要独立出来。
+
+- 判断动态标签类型
+- 解析文本和标签内容
+- 由 `DynamicSqlSource` 去生成 `SqlSource` 语句
+
+
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409230216957.png"/>
+
+<p style="text-align:center">图片来自：小傅哥</p>
+
+
+
+创建SqlSource的入口在于 LanguageDriver 类中
+
+```java
+public interface LanguageDriver {
+  /**
+   * 创建SQL源码
+   *
+   * <p>mapper xml方式
+   */
+  SqlSource createSqlSource(Configuration configuration, Element script, Class<?> parameterType);
+
+  /** 创建SQL源码(annotation 注解方式) */
+  SqlSource createSqlSource(Configuration configuration, String script, Class<?> parameterType);
+
+  /** 创建参数处理器 */
+  ParameterHandler createParameterHandler(
+      MappedStatement ms, Object parameterObject, BoundSql boundSql);
+}
+```
+
+本质上还是走的 XMLScriptBuilder#parseScriptNode
+
+```java
+public class XMLScriptBuilder extends BaseBuilder {
+  //省略...
+  public SqlSource parseScriptNode() {
+    List<SqlNode> contents = parseDynamicTags(element);
+    MixedSqlNode rootSqlNode = new MixedSqlNode(contents);
+    SqlSource sqlSource = null;
+    // 动态还是静态
+    if (isDynamic) {
+      sqlSource = new DynamicSqlSource(configuration, rootSqlNode);
+    } else {
+      sqlSource = new RawSqlSource(configuration, rootSqlNode, parameterType);
+    }
+    return sqlSource;
+  }
+  //省略...
+}
+```
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409230218058.png"/>
+
+实现对应节点的处理逻辑
+
+```java
+public class DynamicSqlSource implements SqlSource {
+
+  private Configuration configuration;
+  private SqlNode rootSqlNode;
+
+  public DynamicSqlSource(Configuration configuration, SqlNode rootSqlNode) {
+    this.configuration = configuration;
+    this.rootSqlNode = rootSqlNode;
+  }
+
+  @Override
+  public BoundSql getBoundSql(Object parameterObject) {
+    // 生成一个 DynamicContext 动态上下文
+    DynamicContext context = new DynamicContext(configuration, parameterObject);
+    // SqlNode.apply 将 ${} 参数替换掉，不替换 #{} 这种参数
+    rootSqlNode.apply(context);
+
+    // 调用 SqlSourceBuilder
+    SqlSourceBuilder sqlSourceParser = new SqlSourceBuilder(configuration);
+    Class<?> parameterType = parameterObject == null ? Object.class : parameterObject.getClass();
+
+    // SqlSourceBuilder.parse 这里返回的是 StaticSqlSource，解析过程就把那些参数都替换成?了，也就是最基本的JDBC的SQL语句。
+    SqlSource sqlSource =
+        sqlSourceParser.parse(context.getSql(), parameterType, context.getBindings());
+
+    // SqlSource.getBoundSql，非递归调用，而是调用 StaticSqlSource 实现类
+    BoundSql boundSql = sqlSource.getBoundSql(parameterObject);
+    for (Map.Entry<String, Object> entry : context.getBindings().entrySet()) {
+      boundSql.setAdditionalParameter(entry.getKey(), entry.getValue());
+    }
+    return boundSql;
+  }
+}
+
+```
+
+### R
+
+通过OGNL(Object-Graph Navigation Language)来完成「动态属性访问」、「方法调用」、「条件判断和逻辑运算」等。

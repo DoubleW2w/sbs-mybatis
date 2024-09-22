@@ -2,7 +2,6 @@ package com.doublew2w.sbs.mybatis.builder;
 
 import com.doublew2w.sbs.mybatis.mapping.ParameterMapping;
 import com.doublew2w.sbs.mybatis.mapping.SqlSource;
-import com.doublew2w.sbs.mybatis.mapping.StaticSqlSource;
 import com.doublew2w.sbs.mybatis.parsing.GenericTokenParser;
 import com.doublew2w.sbs.mybatis.parsing.TokenHandler;
 import com.doublew2w.sbs.mybatis.reflection.MetaClass;

@@ -123,8 +123,10 @@ public class XMLStatementBuilder extends BaseBuilder {
       String id, Class<?> parameterTypeClass, LanguageDriver langDriver) {
     List<Element> selectKeyNodes = element.elements("selectKey");
     parseSelectKeyNodes(id, selectKeyNodes, parameterTypeClass, langDriver);
+    removeSelectKeyNodes(selectKeyNodes);
   }
 
+  /** 循环解析selectKey 标签 */
   private void parseSelectKeyNodes(
       String parentId,
       List<Element> list,
@@ -136,6 +138,25 @@ public class XMLStatementBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * 一旦 selectKey 节点被解析并处理，实际上它的作用已经完成。 在执行时并不需要再次引用这个节点。删除它可以避免后续解析和执行中出现混淆或错误。
+   *
+   * @param selectKeyNodes
+   */
+  private void removeSelectKeyNodes(List<Element> selectKeyNodes) {
+    for (Element nodeToHandle : selectKeyNodes) {
+      nodeToHandle.getParent().remove(nodeToHandle);
+    }
+  }
+
+  /**
+   * 处理 selectKey 标签
+   *
+   * @param id 父标签的id属性值
+   * @param nodeToHandle 当前selectKey节点
+   * @param parameterTypeClass selectKey 标签参数类型
+   * @param langDriver 脚本语言驱动器
+   */
   private void parseSelectKeyNode(
       String id, Element nodeToHandle, Class<?> parameterTypeClass, LanguageDriver langDriver) {
     String resultType = nodeToHandle.attributeValue("resultType");

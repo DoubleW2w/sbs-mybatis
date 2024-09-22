@@ -2,13 +2,12 @@ package com.doublew2w.sbs.mybatis.scripting.xmltags;
 
 import com.doublew2w.sbs.mybatis.reflection.MetaObject;
 import com.doublew2w.sbs.mybatis.session.Configuration;
+import java.util.HashMap;
+import java.util.Map;
 import ognl.OgnlContext;
 import ognl.OgnlException;
 import ognl.OgnlRuntime;
 import ognl.PropertyAccessor;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 动态上下文
@@ -42,7 +41,6 @@ public class DynamicContext {
   public DynamicContext(Configuration configuration, Object parameterObject) {
     // 绝大多数调用的地方parameterObject为null
     if (parameterObject != null && !(parameterObject instanceof Map)) {
-      // 如果是map型  ??  这句是 如果不是map型
       MetaObject metaObject = configuration.newMetaObject(parameterObject);
       bindings = new ContextMap(metaObject);
     } else {
@@ -97,7 +95,6 @@ public class DynamicContext {
         // issue #61 do not modify the context when reading
         return parameterMetaObject.getValue(strKey);
       }
-
       return null;
     }
   }
@@ -106,8 +103,7 @@ public class DynamicContext {
   static class ContextAccessor implements PropertyAccessor {
 
     @Override
-    public Object getProperty(OgnlContext ognlContext, Object target, Object name)
-        throws OgnlException {
+    public Object getProperty(Map context, Object target, Object name) throws OgnlException {
       Map map = (Map) target;
 
       Object result = map.get(name);
@@ -123,7 +119,7 @@ public class DynamicContext {
     }
 
     @Override
-    public void setProperty(OgnlContext ognlContext, Object target, Object name, Object value)
+    public void setProperty(Map context, Object target, Object name, Object value)
         throws OgnlException {
       Map<Object, Object> map = (Map<Object, Object>) target;
       map.put(name, value);
