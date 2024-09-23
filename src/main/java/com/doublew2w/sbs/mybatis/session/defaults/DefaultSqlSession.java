@@ -29,33 +29,31 @@ public class DefaultSqlSession implements SqlSession {
 
   @Override
   public <T> T selectOne(String statement) {
-    return (T) ("你被代理了！" + statement);
+    return this.selectOne(statement, null);
   }
 
   @Override
   public <T> T selectOne(String statement, Object parameter) {
-    log.info("statement：{} parameter：{}", statement, JSON.toJSONString(parameter));
-    MappedStatement ms = configuration.getMappedStatement(statement);
-    List<T> list =
-        executor.query(
-            ms,
-            parameter,
-            RowBounds.DEFAULT,
-            Executor.NO_RESULT_HANDLER,
-            ms.getSqlSource().getBoundSql(parameter));
-    return list.get(0);
+    List<T> list = this.<T>selectList(statement, parameter);
+    if (list.size() == 1) {
+      return list.get(0);
+    } else if (list.size() > 1) {
+      throw new RuntimeException(
+          "Expected one result (or null) to be returned by selectOne(), but found: " + list.size());
+    } else {
+      return null;
+    }
   }
 
   @Override
   public <E> List<E> selectList(String statement, Object parameter) {
     log.info("执行查询 statement：{} parameter：{}", statement, JSON.toJSONString(parameter));
     MappedStatement ms = configuration.getMappedStatement(statement);
-    return executor.query(
-        ms,
-        parameter,
-        RowBounds.DEFAULT,
-        Executor.NO_RESULT_HANDLER,
-        ms.getSqlSource().getBoundSql(parameter));
+    try {
+      return executor.query(ms, parameter, RowBounds.DEFAULT, Executor.NO_RESULT_HANDLER);
+    } catch (SQLException e) {
+      throw new RuntimeException("Error querying database.  Cause: " + e);
+    }
   }
 
   @Override
@@ -110,5 +108,15 @@ public class DefaultSqlSession implements SqlSession {
   @Override
   public Configuration getConfiguration() {
     return configuration;
+  }
+
+  @Override
+  public void close() {
+    executor.close(true);
+  }
+
+  @Override
+  public void clearCache() {
+    executor.clearLocalCache();
   }
 }

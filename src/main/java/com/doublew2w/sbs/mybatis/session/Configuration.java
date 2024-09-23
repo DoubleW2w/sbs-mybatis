@@ -73,6 +73,8 @@ public class Configuration {
   protected final Set<String> loadedResources = new HashSet<>();
   @Setter protected boolean useGeneratedKeys;
   @Getter protected String databaseId;
+  // 缓存机制，默认不配置的情况是 SESSION
+  @Getter @Setter protected LocalCacheScope localCacheScope = LocalCacheScope.SESSION;
 
   public Configuration() {
     typeAliasRegistry.registerAlias("JDBC", JdbcTransactionFactory.class);

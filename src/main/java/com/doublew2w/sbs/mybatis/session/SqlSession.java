@@ -101,4 +101,15 @@ public interface SqlSession {
    * @return Configuration
    */
   Configuration getConfiguration();
+
+
+  /**
+   * 关闭Session
+   */
+  void close();
+
+  /**
+   * 清理 Session 缓存
+   */
+  void clearCache();
 }

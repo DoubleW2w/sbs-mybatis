@@ -42,6 +42,8 @@ public class MappedStatement {
   /** 结果映射 */
   private List<ResultMap> resultMaps;
 
+  private boolean flushCacheRequired;
+
   /** 主键生成器 */
   private KeyGenerator keyGenerator;
 
@@ -115,6 +117,10 @@ public class MappedStatement {
       assert mappedStatement.id != null;
       return mappedStatement;
     }
+  }
+
+  public boolean isFlushCacheRequired() {
+    return flushCacheRequired;
   }
 
   /** 分割字符串 */

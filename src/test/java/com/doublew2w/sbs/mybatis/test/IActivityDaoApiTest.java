@@ -110,4 +110,23 @@ public class IActivityDaoApiTest {
     Activity res = dao.queryActivityById(100001L);
     log.info("测试结果：{}", JSON.toJSONString(res));
   }
+
+  @Test
+  public void test_branch17_first_cache() {
+
+    // 2. 获取映射器对象
+    IActivityDao dao = sqlSession.getMapper(IActivityDao.class);
+
+    // 3. 测试验证
+    Activity req = new Activity();
+    req.setActivityId(100001L);
+
+    log.info("测试结果：{}", JSON.toJSONString(dao.queryActivityByIdForDynamicSql(req)));
+
+    // sqlSession.commit();
+    // sqlSession.clearCache();
+    sqlSession.close();
+
+    log.info("测试结果：{}", JSON.toJSONString(dao.queryActivityByIdForDynamicSql(req)));
+  }
 }

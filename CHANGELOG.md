@@ -1980,7 +1980,7 @@ public Connection getConnection() throws SQLException {
 
 在前面其实完成的是静态 SQL 语句 `RawSqlSource` 的解析，由此创建出对应的 SqlSource 对象。因此需要实现一个 `DynamicSqlSource` 来完成动态 SQL 的解析。
 
-结合上节 `<selectKey>` 标签的思路，也是完成识别标签，然后解析标签属性，最后完成sql的运行，只不过 `<selectKey>` 标签是存在于 `<insert>` 标签内部，所以在解析 `<insert>` 标签以后，进一步解析 `<selectKey>` 标签。而本节的动态Sql标签，则会存在于 `<insert>`,`<update>`,`<delete>`,`<select>` 中，所以要独立出来。
+结合上节 `<selectKey>` 标签的思路，也是完成识别标签，然后解析标签属性，最后完成 sql 的运行，只不过 `<selectKey>` 标签是存在于 `<insert>` 标签内部，所以在解析 `<insert>` 标签以后，进一步解析 `<selectKey>` 标签。而本节的动态 Sql 标签，则会存在于 `<insert>`, `<update>`, `<delete>`, `<select>` 中，所以要独立出来。
 
 - 判断动态标签类型
 - 解析文本和标签内容
@@ -1990,11 +1990,11 @@ public Connection getConnection() throws SQLException {
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409230216957.png"/>
 
-<p style="text-align:center">图片来自：小傅哥</p>
+<p style="text-align:center"> 图片来自：小傅哥 </p>
 
 
 
-创建SqlSource的入口在于 LanguageDriver 类中
+创建 SqlSource 的入口在于 LanguageDriver 类中
 
 ```java
 public interface LanguageDriver {
@@ -2078,9 +2078,11 @@ public class DynamicSqlSource implements SqlSource {
 
 ### R
 
-通过OGNL(Object-Graph Navigation Language)来完成「动态属性访问」、「方法调用」、「条件判断和逻辑运算」等。
+通过 OGNL(Object-Graph Navigation Language)来完成「动态属性访问」、「方法调用」、「条件判断和逻辑运算」等。
 
 ## 插件功能实现
+
+> 代码分支：[16-plugin-impl](https://github.com/DoubleW2w/sbs-mybatis/tree/16-plugin-impl)
 
 ### S
 
@@ -2117,7 +2119,7 @@ public class DynamicSqlSource implements SqlSource {
 
 
 
-#### 解析plugins
+#### 解析 plugins
 
 ```java
   private void pluginElement(Element parent) throws Exception {
@@ -2179,7 +2181,7 @@ public static Object wrap(Object target, Interceptor interceptor) {
 }
 ```
 
-- 获取到自定义插件上的注解信息，并放进set进行管理
+- 获取到自定义插件上的注解信息，并放进 set 进行管理
 - 获取到目标对象实现的所有接口
 - 并根据目标对象生成对应的代理对象
 
@@ -2217,7 +2219,7 @@ public class TestPlugin implements Interceptor {
 
 <img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409232153522.png"/>
 
-<p style="text-align:center">图片来自：小傅哥</p>
+<p style="text-align:center"> 图片来自：小傅哥 </p>
 
 ### R
 
@@ -2255,3 +2257,152 @@ public class TestPlugin implements Interceptor {
 ```
 
 也就是说，根据依赖倒置原则，面向抽象编程的具体实现。
+
+
+
+## 一级缓存
+
+> 代码分支：[17-first-level-cache](https://github.com/DoubleW2w/sbs-mybatis/tree/17-first-level-cache)
+
+
+
+### S
+
+在 MyBatis 中，缓存指的是用于存储查询结果以提高性能的机制。通过缓存，MyBatis 可以减少对数据库的访问次数，从而加快数据读取速度。有「一级缓存」和「二级缓存」
+
+一级缓存是与 `SqlSession` 绑定的缓存，每个 `SqlSession` 拥有自己的缓存。
+
+**作用**：在同一个 `SqlSession` 中，执行相同的查询时，MyBatis 会先检查缓存，如果缓存中存在结果，则直接返回，不再查询数据库。
+
+**生命周期**：一级缓存的生命周期与 `SqlSession` 相同，当 `SqlSession` 被关闭或清除时，缓存也随之失效。
+
+### T
+
+### A
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409240420439.png"/>
+
+<p style="text-align:center"> 图片来自：小傅哥 </p>
+
+
+
+默认情况下使用一级缓存，也就是 Session 级别的。
+
+SqlSession 的工作主要交给 Executor 执行器完成，负责数据库的各种操作。当创建一个 SqlSession 对象时，Mybatis 会为这个 SqlSession 创建一个新的 Executor 执行器，而缓存的工具包也是在执行器的创建时构建出来的。
+
+```xml
+<settings>
+    <!--缓存级别：SESSION/STATEMENT-->
+    <setting name="localCacheScope" value="SESSION"/>
+</settings>
+```
+
+#### 解析
+
+```java
+  private void settingsElement(Element settings) {
+    if (settings == null) return;
+    List<Element> elements = settings.elements();
+    Properties props = new Properties();
+    for (Element element : elements) {
+      props.setProperty(element.attributeValue("name"), element.attributeValue("value"));
+    }
+    configuration.setLocalCacheScope(LocalCacheScope.valueOf(props.getProperty("localCacheScope")));
+  }
+```
+
+#### 使用
+
+```java
+  // 查询，含缓存
+  <E> List<E> query(
+      MappedStatement ms,
+      Object parameter,
+      RowBounds rowBounds,
+      ResultHandler resultHandler,
+      CacheKey key,
+      BoundSql boundSql)
+      throws SQLException;
+
+  // 查询
+  <E> List<E> query(
+      MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler)
+      throws SQLException;
+```
+
+```java
+public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler) throws SQLException {
+    // 1. 获取绑定SQL
+    BoundSql boundSql = ms.getBoundSql(parameter);
+    // 2. 创建缓存Key
+    CacheKey key = createCacheKey(ms, parameter, rowBounds, boundSql);
+    return query(ms, parameter, rowBounds, resultHandler, key, boundSql);
+}
+```
+
+缓存 key 的创建依赖于 update 方法，MyBatis 对于其 Key 的生成采取规则为：[mappedStatementId + offset + limit + SQL + queryParams + environment] 生成一个哈希码作为 Key 使用。
+
+```java
+public class CacheKey implements Cloneable, Serializable {
+  // 省略..
+  private static final int DEFAULT_MULTIPLIER = 37;
+  private static final int DEFAULT_HASHCODE = 17;
+
+  private final int multiplier;
+  private int hashcode;
+  private long checksum;
+  private int count;
+  // 8/21/2017 - Sonarlint flags this as needing to be marked transient. While true if content is
+  // not serializable, this
+  // is not always true and thus should not be marked transient.
+  private List<Object> updateList;
+
+  public CacheKey() {
+    this.hashcode = DEFAULT_HASHCODE;
+    this.multiplier = DEFAULT_MULTIPLIER;
+    this.count = 0;
+    this.updateList = new ArrayList<>();
+  }
+
+  public void update(Object object) {
+    int baseHashCode = object == null ? 1 : ArrayUtil.hashCode(object);
+
+    count++;
+    checksum += baseHashCode;
+    baseHashCode *= count;
+    hashcode = multiplier * hashcode + baseHashCode;
+
+    updateList.add(object);
+  }
+  // 省略..
+}
+```
+
+
+
+测试类
+
+```java
+  public void test_branch17_first_cache() {
+    // 2. 获取映射器对象
+    IActivityDao dao = sqlSession.getMapper(IActivityDao.class);
+    // 3. 测试验证
+    Activity req = new Activity();
+    req.setActivityId(100001L);
+    log.info("测试结果：{}", JSON.toJSONString(dao.queryActivityByIdForDynamicSql(req)));
+    sqlSession.close();
+
+    log.info("测试结果：{}", JSON.toJSONString(dao.queryActivityByIdForDynamicSql(req)));
+  }
+```
+
+
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409240426269.png"/>
+
+### R
+
+Mybatis 中的一级缓存时基于 PerpetualCache 的 HashMap 本地缓存，其存储作用域为 Session，当 Session flush 或 close 之后，该 Session 中的所有 Cache 就将清空，默认打开一级缓存。
+
+对于缓存数据更新机制，当某一个作用域(一级缓存 Session/二级缓存 Namespaces)的进行了 C/U/D 操作后，默认该作用域下所有 select 中的缓存将被 clear 掉并重新更新，如果开启了二级缓存，则只根据配置判断是否刷新。
+

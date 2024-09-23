@@ -6,6 +6,7 @@ import com.doublew2w.sbs.mybatis.io.Resources;
 import com.doublew2w.sbs.mybatis.mapping.Environment;
 import com.doublew2w.sbs.mybatis.plugin.Interceptor;
 import com.doublew2w.sbs.mybatis.session.Configuration;
+import com.doublew2w.sbs.mybatis.session.LocalCacheScope;
 import com.doublew2w.sbs.mybatis.transaction.TransactionFactory;
 import java.io.InputStream;
 import java.io.Reader;
@@ -50,6 +51,8 @@ public class XMLConfigBuilder extends BaseBuilder {
     try {
       // 插件
       pluginElement(root.element("plugins"));
+      // 设置
+      settingsElement(root.element("settings"));
       // 环境
       environmentsElement(root.element("environments"));
       // 解析映射器
@@ -58,6 +61,26 @@ public class XMLConfigBuilder extends BaseBuilder {
       throw new RuntimeException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
     }
     return configuration;
+  }
+
+  /**
+   * setting配置解析
+   *
+   * <pre>
+   * &lt;settings&gt;
+   *     &lt;!--缓存级别：SESSION/STATEMENT--&gt;
+   *     &lt;setting name="localCacheScope" value="SESSION"/&gt;
+   * &lt;/settings&gt;
+   * </pre>
+   */
+  private void settingsElement(Element settings) {
+    if (settings == null) return;
+    List<Element> elements = settings.elements();
+    Properties props = new Properties();
+    for (Element element : elements) {
+      props.setProperty(element.attributeValue("name"), element.attributeValue("value"));
+    }
+    configuration.setLocalCacheScope(LocalCacheScope.valueOf(props.getProperty("localCacheScope")));
   }
 
   /**
