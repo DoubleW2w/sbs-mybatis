@@ -2079,3 +2079,179 @@ public class DynamicSqlSource implements SqlSource {
 ### R
 
 通过OGNL(Object-Graph Navigation Language)来完成「动态属性访问」、「方法调用」、「条件判断和逻辑运算」等。
+
+## 插件功能实现
+
+### S
+
+### T
+
+通过代理来实现对类的扩展，并在代理中调用自定义的逻辑行为。
+
+按照 Mybatis 框架提供的拦截器接口，实现自己的功能实现类，并把这个类配置到 Mybatis 的 XML 配置中
+
+```xml
+<plugins>
+	<plugin interceptor="com.doublew2w.mybatis.test.plugin.MyPlugin">
+    <property name="user" value="zzz"/>
+  </plugin>
+</plugins>
+```
+
+### A
+
+在 Mybatis Plugin 插件的具体实现落地中，由框架提供拦截器接口，交由使用方实现，并通过配置的方式把实现添加到 Mybatis 框架中。
+
+- `ParameterHandler`
+- `ResultSetHandler`
+- `StatementHandler`
+- `Executor`
+
+都可以为它们创建对面的插件。当调用任意类对应的接口方法时，都能调用到用户实现拦截器接口的插件内容，也就是实现了自定义扩展的效果。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409231953241.png"/>
+
+
+
+通过实现 `InvocationHandler` 接口，你可以定义如何处理方法调用。MyBatis 中的 `Plugin` 类通常实现 `InvocationHandler`，用于创建动态代理以拦截方法调用。当代理对象上的方法被调用时，`invoke` 方法就会被执行，你可以在 `invoke` 方法中添加自定义逻辑，完成拦截行为。
+
+
+
+#### 解析plugins
+
+```java
+  private void pluginElement(Element parent) throws Exception {
+    if (parent != null) {
+      List<Element> elements = parent.elements();
+      for (Element element : elements) {
+        String interceptor = element.attributeValue("interceptor");
+        // 参数配置
+        Properties properties = new Properties();
+        List<Element> propertyElementList = element.elements("property");
+        for (Element property : propertyElementList) {
+          properties.setProperty(property.attributeValue("name"), property.attributeValue("value"));
+        }
+        // 获取插件实现类并实例化：
+        Interceptor interceptorInstance =
+            (Interceptor) resolveClass(interceptor).getDeclaredConstructor().newInstance();
+        interceptorInstance.setProperties(properties);
+        configuration.addInterceptor(interceptorInstance);
+      }
+    }
+  }
+```
+
+- `interceptor` 插件类的全限定名名称
+- `Properties properties` 插件的属性
+- 实例化拦截器，并放进拦截器链进行管理
+
+#### 生成代理对象并使用自定义逻辑
+
+```java
+public interface Interceptor {
+  Object intercept(Invocation invocation) throws Throwable;
+  default Object plugin(Object target) {
+    return Plugin.wrap(target, this);
+  }
+
+  default void setProperties(Properties properties) {
+    // NOP
+  }
+}
+```
+
+```java
+public class Plugin implements InvocationHandler {
+  //省略..
+public static Object wrap(Object target, Interceptor interceptor) {
+    // 从拦截器中获取签名映射，用于后续判断哪些方法需要被拦截
+    Map<Class<?>, Set<Method>> signatureMap = getSignatureMap(interceptor);
+    Class<?> type = target.getClass();
+    //  获取目标对象类实现的所有接口，并且这些接口中的方法需要在拦截器中处理
+    Class<?>[] interfaces = getAllInterfaces(type, signatureMap);
+    if (interfaces.length > 0) {
+      return Proxy.newProxyInstance(
+          type.getClassLoader(), interfaces, new Plugin(target, interceptor, signatureMap));
+    }
+    return target;
+  }
+   //省略..
+}
+```
+
+- 获取到自定义插件上的注解信息，并放进set进行管理
+- 获取到目标对象实现的所有接口
+- 并根据目标对象生成对应的代理对象
+
+```java
+@Intercepts({
+  @Signature(
+      type = StatementHandler.class,
+      method = "prepare",
+      args = {Connection.class})
+})
+public class TestPlugin implements Interceptor {
+  @Override
+  public Object intercept(Invocation invocation) throws Throwable {
+    // 获取StatementHandler
+    StatementHandler statementHandler = (StatementHandler) invocation.getTarget();
+    // 获取SQL信息
+    BoundSql boundSql = statementHandler.getBoundSql();
+    String sql = boundSql.getSql();
+    // 输出SQL
+    System.out.println("拦截SQL：" + sql);
+    // 放行
+    return invocation.proceed();
+  }
+
+  @Override
+  public void setProperties(Properties properties) {
+    System.out.println("参数输出：" + properties.getProperty("test00"));
+  }
+}
+```
+
+在插件中完成自定义逻辑
+
+
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409232153522.png"/>
+
+<p style="text-align:center">图片来自：小傅哥</p>
+
+### R
+
+通过 Proxy 类来生成对目标对象的代理对象。代理对象的拦截是通过实现 `InvocationHandler` 接口来完成的
+
+```java
+  public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    try {
+      Set<Method> methods = signatureMap.get(method.getDeclaringClass());
+      if (methods != null && methods.contains(method)) {
+        return interceptor.intercept(new Invocation(target, method, args));
+      }
+      return method.invoke(target, args);
+    } catch (Exception e) {
+      throw ExceptionUtil.unwrapThrowable(e);
+    }
+  }
+```
+
+每一个代理对象（拦截器）都会有自己的自定义逻辑
+
+```java
+	  @Override
+  public Object intercept(Invocation invocation) throws Throwable {
+    // 获取StatementHandler
+    StatementHandler statementHandler = (StatementHandler) invocation.getTarget();
+    // 获取SQL信息
+    BoundSql boundSql = statementHandler.getBoundSql();
+    String sql = boundSql.getSql();	
+    // 输出SQL
+    System.out.println("拦截SQL：" + sql);
+    // 放行
+    return invocation.proceed();
+  }
+```
+
+也就是说，根据依赖倒置原则，面向抽象编程的具体实现。

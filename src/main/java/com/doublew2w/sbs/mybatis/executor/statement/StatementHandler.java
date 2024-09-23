@@ -1,5 +1,6 @@
 package com.doublew2w.sbs.mybatis.executor.statement;
 
+import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.session.ResultHandler;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -25,4 +26,7 @@ public interface StatementHandler {
 
   /** 执行更新 */
   int update(Statement statement) throws SQLException;
+
+  /** 获取绑定SQL */
+  BoundSql getBoundSql();
 }

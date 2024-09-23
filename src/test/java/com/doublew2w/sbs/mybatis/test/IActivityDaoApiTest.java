@@ -101,4 +101,13 @@ public class IActivityDaoApiTest {
 
     System.out.println(activityName + "\t" + activityDesc + " length：" + value);
   }
+
+  @Test
+  public void test_branch16_plugin_parse() throws Exception {
+    // 2. 获取映射器对象
+    IActivityDao dao = sqlSession.getMapper(IActivityDao.class);
+    // 2. 测试验证
+    Activity res = dao.queryActivityById(100001L);
+    log.info("测试结果：{}", JSON.toJSONString(res));
+  }
 }

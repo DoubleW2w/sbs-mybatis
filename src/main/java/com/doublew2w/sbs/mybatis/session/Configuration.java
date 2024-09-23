@@ -16,6 +16,8 @@ import com.doublew2w.sbs.mybatis.mapping.BoundSql;
 import com.doublew2w.sbs.mybatis.mapping.Environment;
 import com.doublew2w.sbs.mybatis.mapping.MappedStatement;
 import com.doublew2w.sbs.mybatis.mapping.ResultMap;
+import com.doublew2w.sbs.mybatis.plugin.Interceptor;
+import com.doublew2w.sbs.mybatis.plugin.InterceptorChain;
 import com.doublew2w.sbs.mybatis.reflection.MetaObject;
 import com.doublew2w.sbs.mybatis.reflection.factory.DefaultObjectFactory;
 import com.doublew2w.sbs.mybatis.reflection.factory.ObjectFactory;
@@ -65,6 +67,8 @@ public class Configuration {
   // 对象工厂和对象包装器工厂
   @Getter protected ObjectFactory objectFactory = new DefaultObjectFactory();
   protected ObjectWrapperFactory objectWrapperFactory = new DefaultObjectWrapperFactory();
+  // 插件拦截器链
+  protected final InterceptorChain interceptorChain = new InterceptorChain();
 
   protected final Set<String> loadedResources = new HashSet<>();
   @Setter protected boolean useGeneratedKeys;
@@ -126,8 +130,12 @@ public class Configuration {
       RowBounds rowBounds,
       ResultHandler resultHandler,
       BoundSql boundSql) {
-    return new PreparedStatementHandler(
-        executor, mappedStatement, parameterObject, resultHandler, boundSql, rowBounds);
+    StatementHandler statementHandler =
+        new PreparedStatementHandler(
+            executor, mappedStatement, parameterObject, resultHandler, boundSql, rowBounds);
+    // 嵌入插件，代理对象
+    statementHandler = (StatementHandler) interceptorChain.pluginAll(statementHandler);
+    return statementHandler;
   }
 
   // 创建元对象
@@ -180,5 +188,9 @@ public class Configuration {
 
   public KeyGenerator getKeyGenerator(String id) {
     return keyGenerators.get(id);
+  }
+
+  public void addInterceptor(Interceptor interceptorInstance) {
+    interceptorChain.addInterceptor(interceptorInstance);
   }
 }

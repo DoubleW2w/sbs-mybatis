@@ -4,6 +4,7 @@ import com.doublew2w.sbs.mybatis.builder.BaseBuilder;
 import com.doublew2w.sbs.mybatis.datasource.DataSourceFactory;
 import com.doublew2w.sbs.mybatis.io.Resources;
 import com.doublew2w.sbs.mybatis.mapping.Environment;
+import com.doublew2w.sbs.mybatis.plugin.Interceptor;
 import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.transaction.TransactionFactory;
 import java.io.InputStream;
@@ -47,6 +48,8 @@ public class XMLConfigBuilder extends BaseBuilder {
    */
   public Configuration parse() {
     try {
+      // 插件
+      pluginElement(root.element("plugins"));
       // 环境
       environmentsElement(root.element("environments"));
       // 解析映射器
@@ -55,6 +58,39 @@ public class XMLConfigBuilder extends BaseBuilder {
       throw new RuntimeException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
     }
     return configuration;
+  }
+
+  /**
+   * Mybatis 允许你在某一点切入映射语句执行的调度
+   *
+   * <pre>
+   *   &lt;plugins&gt;
+   *       &lt;plugin interceptor="xxx.xxx.mybatis.test.plugin.TestPlugin"&gt;
+   *           &lt;property name="usss" value="100"/&gt;
+   *       &lt;/plugin&gt;
+   *   &lt;/plugins&gt;
+   *   </pre>
+   *
+   * @param parent plugins父节点
+   */
+  private void pluginElement(Element parent) throws Exception {
+    if (parent != null) {
+      List<Element> elements = parent.elements();
+      for (Element element : elements) {
+        String interceptor = element.attributeValue("interceptor");
+        // 参数配置
+        Properties properties = new Properties();
+        List<Element> propertyElementList = element.elements("property");
+        for (Element property : propertyElementList) {
+          properties.setProperty(property.attributeValue("name"), property.attributeValue("value"));
+        }
+        // 获取插件实现类并实例化：
+        Interceptor interceptorInstance =
+            (Interceptor) resolveClass(interceptor).getDeclaredConstructor().newInstance();
+        interceptorInstance.setProperties(properties);
+        configuration.addInterceptor(interceptorInstance);
+      }
+    }
   }
 
   /**
