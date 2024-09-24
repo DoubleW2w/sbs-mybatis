@@ -8,6 +8,7 @@ import com.doublew2w.sbs.mybatis.session.SqlSessionFactoryBuilder;
 import com.doublew2w.sbs.mybatis.test.dao.IActivityDao;
 import com.doublew2w.sbs.mybatis.test.po.Activity;
 import java.io.IOException;
+import java.io.Reader;
 import java.lang.reflect.Member;
 import java.lang.reflect.Modifier;
 import java.util.Map;
@@ -128,5 +129,32 @@ public class IActivityDaoApiTest {
     sqlSession.close();
 
     log.info("测试结果：{}", JSON.toJSONString(dao.queryActivityByIdForDynamicSql(req)));
+  }
+
+  @Test
+  public void test_branch18_second_cache() throws IOException {
+    // 1. 从SqlSessionFactory中获取SqlSession
+    Reader reader = Resources.getResourceAsReader("mybatis-config.xml");
+    SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
+
+    // 2. 请求对象
+    Activity req = new Activity();
+    req.setActivityId(100001L);
+
+    // 3. 第一组：SqlSession
+    // 3.1 开启 Session
+    SqlSession sqlSession01 = sqlSessionFactory.openSession();
+    // 3.2 获取映射器对象
+    IActivityDao dao01 = sqlSession01.getMapper(IActivityDao.class);
+    log.info("测试结果01：{}", JSON.toJSONString(dao01.queryActivityByIdUseSecondLevelCache(req)));
+    sqlSession01.close();
+
+    // 4. 第一组：SqlSession
+    // 4.1 开启 Session
+    SqlSession sqlSession02 = sqlSessionFactory.openSession();
+    // 4.2 获取映射器对象
+    IActivityDao dao02 = sqlSession02.getMapper(IActivityDao.class);
+    log.info("测试结果02：{}", JSON.toJSONString(dao02.queryActivityByIdUseSecondLevelCache(req)));
+    sqlSession02.close();
   }
 }

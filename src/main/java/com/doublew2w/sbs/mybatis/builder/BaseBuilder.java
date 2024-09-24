@@ -60,4 +60,8 @@ public abstract class BaseBuilder {
     }
     return handler;
   }
+
+  protected Boolean booleanValueOf(String value, Boolean defaultValue) {
+    return value == null ? defaultValue : Boolean.valueOf(value);
+  }
 }

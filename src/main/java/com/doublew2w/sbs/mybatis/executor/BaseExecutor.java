@@ -147,6 +147,7 @@ public abstract class BaseExecutor implements Executor {
       log.warn("Unexpected exception on closing transaction.  Cause: " + e);
     } finally {
       transaction = null;
+      localCache = null;
       closed = true;
     }
   }
@@ -190,6 +191,11 @@ public abstract class BaseExecutor implements Executor {
       cacheKey.update(configuration.getEnvironment().getId());
     }
     return cacheKey;
+  }
+
+  @Override
+  public void setExecutorWrapper(Executor executor) {
+    this.wrapper = wrapper;
   }
 
   /** 真正的具体实现交给子类 */

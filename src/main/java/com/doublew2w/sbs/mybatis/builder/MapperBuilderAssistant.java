@@ -1,5 +1,8 @@
 package com.doublew2w.sbs.mybatis.builder;
 
+import com.doublew2w.sbs.mybatis.cache.Cache;
+import com.doublew2w.sbs.mybatis.cache.decorators.FifoCache;
+import com.doublew2w.sbs.mybatis.cache.impl.PerpetualCache;
 import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
 import com.doublew2w.sbs.mybatis.mapping.*;
 import com.doublew2w.sbs.mybatis.reflection.MetaClass;
@@ -8,6 +11,7 @@ import com.doublew2w.sbs.mybatis.session.Configuration;
 import com.doublew2w.sbs.mybatis.type.TypeHandler;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -34,6 +38,8 @@ public class MapperBuilderAssistant extends BaseBuilder {
 
   /** mapperXML路径资源 */
   private String resource;
+
+  private Cache currentCache;
 
   public MapperBuilderAssistant(Configuration configuration, String resource) {
     super(configuration);
@@ -74,12 +80,15 @@ public class MapperBuilderAssistant extends BaseBuilder {
       Class<?> parameterType,
       String resultMap,
       Class<?> resultType,
+      boolean flushCache,
+      boolean useCache,
       KeyGenerator keyGenerator,
       String keyProperty,
       LanguageDriver lang) {
     // 给 id，resultMap加上namespace前缀形成唯一标识
     id = applyCurrentNamespace(id, false);
-
+    // 是否是select语句
+    boolean isSelect = sqlCommandType == SqlCommandType.SELECT;
     MappedStatement.Builder statementBuilder =
         new MappedStatement.Builder(configuration, id, sqlCommandType, sqlSource, resultType)
             .resource(resource)
@@ -88,7 +97,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
 
     // 结果映射，给 MappedStatement#resultMaps
     setStatementResultMap(resultMap, resultType, statementBuilder);
-
+    setStatementCache(isSelect, flushCache, useCache, currentCache, statementBuilder);
     MappedStatement statement = statementBuilder.build();
 
     // 添加解析 SQL
@@ -181,5 +190,71 @@ public class MapperBuilderAssistant extends BaseBuilder {
       javaType = Object.class;
     }
     return javaType;
+  }
+
+  /**
+   * Mapper构建助手
+   * @param isSelect 是否是select语句
+   * @param flushCache 刷新缓存标志
+   * @param useCache 使用缓存
+   * @param cache 缓存对象
+   * @param statementBuilder builder
+   */
+  private void setStatementCache(
+      boolean isSelect,
+      boolean flushCache,
+      boolean useCache,
+      Cache cache,
+      MappedStatement.Builder statementBuilder) {
+    flushCache = valueOrDefault(flushCache, !isSelect);
+    useCache = valueOrDefault(useCache, isSelect);
+    statementBuilder.flushCacheRequired(flushCache);
+    statementBuilder.useCache(useCache);
+    statementBuilder.cache(cache);
+  }
+
+  /**
+   * 使用建造者模式来构建一个缓存实例，然后将其添加到配置中
+   * @param typeClass 缓存实现类的类类型如果为null，则默认使用PerpetualCache
+   * @param evictionClass 缓存驱逐策略类类型如果为null，则默认使用FifoCache
+   * @param flushInterval 缓存刷新间隔时间（毫秒）如果为null，则不自动刷新
+   * @param size 缓存大小如果为null，则无大小限制
+   * @param readWrite 是否为读写模式如果为true，则缓存将以读写模式运行；否则，将以只读模式运行
+   * @param blocking 是否为阻塞模式如果为true，则缓存将以阻塞模式运行；否则，将以非阻塞模式运行
+   * @param props 额外的属性配置可以为空
+   * @return
+   */
+  public Cache useNewCache(
+      Class<? extends Cache> typeClass,
+      Class<? extends Cache> evictionClass,
+      Long flushInterval,
+      Integer size,
+      boolean readWrite,
+      boolean blocking,
+      Properties props) {
+    // 判断为null，则用默认值
+    typeClass = valueOrDefault(typeClass, PerpetualCache.class);
+    evictionClass = valueOrDefault(evictionClass, FifoCache.class);
+
+    // 建造者模式构建 Cache [currentNamespace=cn.bugstack.mybatis.test.dao.IActivityDao]
+    Cache cache =
+        new CacheBuilder(currentNamespace)
+            .implementation(typeClass)
+            .addDecorator(evictionClass)
+            .clearInterval(flushInterval)
+            .size(size)
+            .readWrite(readWrite)
+            .blocking(blocking)
+            .properties(props)
+            .build();
+
+    // 添加缓存
+    configuration.addCache(cache);
+    currentCache = cache;
+    return cache;
+  }
+
+  private <T> T valueOrDefault(T value, T defaultValue) {
+    return value == null ? defaultValue : value;
   }
 }

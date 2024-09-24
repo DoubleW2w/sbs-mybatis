@@ -2406,3 +2406,197 @@ Mybatis 中的一级缓存时基于 PerpetualCache 的 HashMap 本地缓存，�
 
 对于缓存数据更新机制，当某一个作用域(一级缓存 Session/二级缓存 Namespaces)的进行了 C/U/D 操作后，默认该作用域下所有 select 中的缓存将被 clear 掉并重新更新，如果开启了二级缓存，则只根据配置判断是否刷新。
 
+## 二级缓存的实现
+
+> 代码分支：[18-second-level-cache](https://github.com/DoubleW2w/sbs-mybatis/tree/18-second-level-cache)
+
+### S
+
+一级缓存的功能实现，它对数据的缓存操作主要作用于一次 Session 会话的生命周期内，从查询开始保存数据，到执行有可能变更数据库的操作为止清空一级缓存数据。
+
+Mybatis 框架中的二级缓存，以一个 Mapper 为生命周期，在这个 Mapper 内的同一个操作，无论发起几次会话都可以使用缓存来处理数据。
+
+### T
+
+二级缓存在一级缓存会话层上，添加的额外缓存操作，当会话发生 close、commit 操作时则把数据刷新到二级缓存中进行保存，直到执行器发生 update 操作时清空缓存。
+
+### A
+
+缓存类 `FifoCache `
+
+```java
+public class FifoCache implements Cache {
+
+  private final Cache delegate;
+  private final Deque<Object> keyList;
+  private int size;
+
+  public FifoCache(Cache delegate) {
+    this.delegate = delegate;
+    this.keyList = new LinkedList<>();
+    this.size = 1024;
+  }
+
+  @Override
+  public String getId() {
+    return delegate.getId();
+  }
+
+  @Override
+  public int getSize() {
+    return delegate.getSize();
+  }
+
+  public void setSize(int size) {
+    this.size = size;
+  }
+
+  @Override
+  public void putObject(Object key, Object value) {
+    cycleKeyList(key);
+    delegate.putObject(key, value);
+  }
+
+  @Override
+  public Object getObject(Object key) {
+    return delegate.getObject(key);
+  }
+
+  @Override
+  public Object removeObject(Object key) {
+    return delegate.removeObject(key);
+  }
+
+  @Override
+  public void clear() {
+    delegate.clear();
+    keyList.clear();
+  }
+
+  private void cycleKeyList(Object key) {
+    keyList.addLast(key);
+    if (keyList.size() > size) {
+      Object oldestKey = keyList.removeFirst();
+      delegate.removeObject(oldestKey);
+    }
+  }
+}
+```
+
+- 通过 cycleKeyList 方法的作用是在增加记录时判断记录是否超过size值，超过的时候移除头元素
+
+`TransactionalCache` 负责存储会话期间内的缓存数据，当会话结束后则把缓存**刷新到二级缓存**中。如果是回滚操作则清空缓存。
+
+```java
+public class CachingExecutor implements Executor {
+
+  private Executor delegate;
+  private TransactionalCacheManager tcm = new TransactionalCacheManager();
+
+	//省略...
+
+  @Override
+  public <E> List<E> query(
+      MappedStatement ms,
+      Object parameter,
+      RowBounds rowBounds,
+      ResultHandler resultHandler,
+      CacheKey key,
+      BoundSql boundSql)
+      throws SQLException {
+    Cache cache = ms.getCache();
+    if (cache != null) {
+      flushCacheIfRequired(ms);
+      if (ms.isUseCache() && resultHandler == null) {
+        @SuppressWarnings("unchecked")
+        List<E> list = (List<E>) tcm.getObject(cache, key);
+        if (list == null) {
+          list = delegate.<E>query(ms, parameter, rowBounds, resultHandler, key, boundSql);
+          // cache：缓存队列实现类，FIFO
+          // key：哈希值 [mappedStatementId + offset + limit + SQL + queryParams + environment]
+          // list：查询的数据
+          tcm.putObject(cache, key, list);
+        }
+        // 打印调试日志，记录二级缓存获取数据
+        if (log.isDebugEnabled() && cache.getSize() > 0) {
+          log.debug("二级缓存：{}", JSON.toJSONString(list));
+        }
+        return list;
+      }
+    }
+    return delegate.<E>query(ms, parameter, rowBounds, resultHandler, key, boundSql);
+  }
+
+  @Override
+  public <E> List<E> query(
+      MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler)
+      throws SQLException {
+    // 1. 获取绑定SQL
+    BoundSql boundSql = ms.getBoundSql(parameter);
+    // 2. 创建缓存Key
+    CacheKey key = createCacheKey(ms, parameter, rowBounds, boundSql);
+    return query(ms, parameter, rowBounds, resultHandler, key, boundSql);
+  }
+
+  @Override
+  public int update(MappedStatement ms, Object parameter) throws SQLException {
+    return delegate.update(ms, parameter);
+  }
+
+  // 省略....
+  @Override
+  public void commit(boolean required) throws SQLException {
+    delegate.commit(required);
+    tcm.commit();
+  }
+  @Override
+  public void close(boolean forceRollback) {
+    try {
+      if (forceRollback) {
+        tcm.rollback();
+      } else {
+        tcm.commit();
+      }
+    } finally {
+      delegate.close(forceRollback);
+    }
+  }
+
+ 	//省略....
+
+  private void flushCacheIfRequired(MappedStatement ms) {
+    Cache cache = ms.getCache();
+    if (cache != null && ms.isFlushCacheRequired()) {
+      tcm.clear(cache);
+    }
+  }
+}
+```
+
+- 当缓存数据随着会话周期处理完后，则存放到 MappedStatement 所提供的 Cache 缓存队列中，也就是本章节所实现的 FiflCache 先进先出缓存实现类。
+- 另外关于缓存的流转会调用 TransactionalCacheManager 事务缓存管理器进行操作，从会话作用域范围，通过会话的结束，刷新提交到二级缓存或者清空处理。
+
+### R
+
+装饰器:可以再不破坏原有逻辑的前提下，完成功能通过配置开关的自由开启使用。
+
+```java
+  public Cache build() {
+    // 装饰器进行装饰
+    setDefaultImplementations();
+    // 实例化一个缓存类
+    Cache cache = newBaseCacheInstance(implementation, id);
+    // 设置缓存喜属性
+    setCacheProperties(cache);
+    if (PerpetualCache.class.equals(cache.getClass())) {
+      for (Class<? extends Cache> decorator : decorators) {
+        // 使用装饰者模式包装
+        cache = newCacheDecoratorInstance(decorator, cache);
+        // 额外属性设置
+        setCacheProperties(cache);
+      }
+    }
+    return cache;
+  }
+```
+

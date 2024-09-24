@@ -3,6 +3,7 @@ package com.doublew2w.sbs.mybatis.builder.xml;
 import com.doublew2w.sbs.mybatis.builder.BaseBuilder;
 import com.doublew2w.sbs.mybatis.builder.MapperBuilderAssistant;
 import com.doublew2w.sbs.mybatis.builder.ResultMapResolver;
+import com.doublew2w.sbs.mybatis.cache.Cache;
 import com.doublew2w.sbs.mybatis.io.Resources;
 import com.doublew2w.sbs.mybatis.mapping.ResultFlag;
 import com.doublew2w.sbs.mybatis.mapping.ResultMap;
@@ -12,6 +13,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
@@ -69,6 +71,9 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
     builderAssistant.setCurrentNamespace(namespace);
 
+    // 2. 配置cache
+    cacheElement(element.element("cache"));
+
     // 2. 解析resultMap
     resultMapElements(element.elements("resultMap"));
 
@@ -79,6 +84,31 @@ public class XMLMapperBuilder extends BaseBuilder {
     list.addAll(element.elements("update"));
     list.addAll(element.elements("delete"));
     buildStatementFromContext(list);
+  }
+
+  /** <cache eviction="FIFO" flushInterval="600000" size="512" readOnly="true"/> */
+  private void cacheElement(Element cache) {
+    if (cache == null) return;
+    // 基础配置信息
+    String type = cache.attributeValue("type", "PERPETUAL");
+    Class<? extends Cache> typeClass = typeAliasRegistry.resolveAlias(type);
+    // 缓存队列 FIFO
+    String eviction = cache.attributeValue("eviction", "FIFO");
+    Class<? extends Cache> evictionClass = typeAliasRegistry.resolveAlias(eviction);
+    Long flushInterval = Long.valueOf(cache.attributeValue("flushInterval"));
+    Integer size = Integer.valueOf(cache.attributeValue("size"));
+    boolean readWrite = !Boolean.parseBoolean(cache.attributeValue("readOnly", "false"));
+    boolean blocking = !Boolean.parseBoolean(cache.attributeValue("blocking", "false"));
+
+    // 解析额外属性信息；<property name="cacheFile" value="/tmp/xxx-cache.tmp"/>
+    List<Element> elements = cache.elements();
+    Properties props = new Properties();
+    for (Element element : elements) {
+      props.setProperty(element.attributeValue("name"), element.attributeValue("value"));
+    }
+    // 构建缓存
+    builderAssistant.useNewCache(
+        typeClass, evictionClass, flushInterval, size, readWrite, blocking, props);
   }
 
   /**

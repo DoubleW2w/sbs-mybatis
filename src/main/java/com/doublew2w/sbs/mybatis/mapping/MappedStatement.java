@@ -1,5 +1,6 @@
 package com.doublew2w.sbs.mybatis.mapping;
 
+import com.doublew2w.sbs.mybatis.cache.Cache;
 import com.doublew2w.sbs.mybatis.executor.keygen.Jdbc3KeyGenerator;
 import com.doublew2w.sbs.mybatis.executor.keygen.KeyGenerator;
 import com.doublew2w.sbs.mybatis.executor.keygen.NoKeyGenerator;
@@ -52,6 +53,9 @@ public class MappedStatement {
 
   /** 主键列 */
   private String[] keyColumns;
+
+  private Cache cache;
+  private boolean useCache;
 
   MappedStatement() {}
 
@@ -112,6 +116,21 @@ public class MappedStatement {
       return this;
     }
 
+    public Builder cache(Cache cache) {
+      mappedStatement.cache = cache;
+      return this;
+    }
+
+    public Builder flushCacheRequired(boolean flushCacheRequired) {
+      mappedStatement.flushCacheRequired = flushCacheRequired;
+      return this;
+    }
+
+    public Builder useCache(boolean useCache) {
+      mappedStatement.useCache = useCache;
+      return this;
+    }
+
     public MappedStatement build() {
       assert mappedStatement.configuration != null;
       assert mappedStatement.id != null;
@@ -130,5 +149,13 @@ public class MappedStatement {
     } else {
       return in.split(",");
     }
+  }
+
+  public boolean isUseCache() {
+    return useCache;
+  }
+
+  public Cache getCache() {
+    return cache;
   }
 }

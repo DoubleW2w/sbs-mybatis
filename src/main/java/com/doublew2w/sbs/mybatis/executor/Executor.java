@@ -59,4 +59,11 @@ public interface Executor {
    */
   CacheKey createCacheKey(
       MappedStatement ms, Object parameterObject, RowBounds rowBounds, BoundSql boundSql);
+
+  /**
+   * 设置执行器包装器
+   *
+   * @param executor 执行器
+   */
+  void setExecutorWrapper(Executor executor);
 }

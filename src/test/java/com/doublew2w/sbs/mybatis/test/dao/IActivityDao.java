@@ -13,4 +13,6 @@ public interface IActivityDao {
   Integer insert(Activity activity);
 
   Activity queryActivityByIdForDynamicSql(Activity Activity);
+
+  Activity queryActivityByIdUseSecondLevelCache(Activity Activity);
 }
