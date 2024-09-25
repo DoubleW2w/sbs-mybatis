@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import ognl.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 /**
  * @author: DoubleW2w
@@ -156,5 +158,13 @@ public class IActivityDaoApiTest {
     IActivityDao dao02 = sqlSession02.getMapper(IActivityDao.class);
     log.info("测试结果02：{}", JSON.toJSONString(dao02.queryActivityByIdUseSecondLevelCache(req)));
     sqlSession02.close();
+  }
+
+  @Test
+  public void test_branch19_ClassPathXmlApplicationContext() {
+    BeanFactory beanFactory = new ClassPathXmlApplicationContext("spring-config.xml");
+    IActivityDao dao = beanFactory.getBean("IActivityDao", IActivityDao.class);
+    Activity res = dao.queryActivityByIdForDynamicSql(new Activity(100001L));
+    log.info("测试结果：{}", JSON.toJSONString(res));
   }
 }

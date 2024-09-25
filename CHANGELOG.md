@@ -2483,9 +2483,9 @@ public class FifoCache implements Cache {
 }
 ```
 
-- 通过 cycleKeyList 方法的作用是在增加记录时判断记录是否超过size值，超过的时候移除头元素
+- 通过 cycleKeyList 方法的作用是在增加记录时判断记录是否超过 size 值，超过的时候移除头元素
 
-`TransactionalCache` 负责存储会话期间内的缓存数据，当会话结束后则把缓存**刷新到二级缓存**中。如果是回滚操作则清空缓存。
+`TransactionalCache` 负责存储会话期间内的缓存数据，当会话结束后则把缓存 **刷新到二级缓存** 中。如果是回滚操作则清空缓存。
 
 ```java
 public class CachingExecutor implements Executor {
@@ -2578,7 +2578,7 @@ public class CachingExecutor implements Executor {
 
 ### R
 
-装饰器:可以再不破坏原有逻辑的前提下，完成功能通过配置开关的自由开启使用。
+装饰器: 可以再不破坏原有逻辑的前提下，完成功能通过配置开关的自由开启使用。
 
 ```java
   public Cache build() {
@@ -2600,3 +2600,252 @@ public class CachingExecutor implements Executor {
   }
 ```
 
+## Spring 整合 Myabtis
+
+`org.springframework.beans.factory.FactoryBean` 是 Spring 框架中的一个接口，主要用于创建和管理 bean 实例，可以自定义 Bean 的创建逻辑。
+
+```java
+public class MapperFactoryBean<T> implements FactoryBean<T> {
+
+  private Class<T> mapperInterface;
+  private SqlSessionFactory sqlSessionFactory;
+
+  public MapperFactoryBean(Class<T> mapperInterface, SqlSessionFactory sqlSessionFactory) {
+    log.info("{},构造函数:执行", mapperInterface);
+    this.mapperInterface = mapperInterface;
+    this.sqlSessionFactory = sqlSessionFactory;
+  }
+
+  @Override
+  public T getObject() throws Exception {
+    return sqlSessionFactory.openSession().getMapper(mapperInterface);
+  }
+
+  @Override
+  public Class<?> getObjectType() {
+    return mapperInterface;
+  }
+}
+
+```
+
+`org.springframework.beans.factory.InitializingBean` 是 Spring 框架中的一个接口，用于定义一个特定的回调方法，该方法在 Spring 容器实例化和填充完 bean 之后被调用。
+
+- 自定义初始化逻辑，即这个逻辑是在 Spring 完成 bean 的属性设置后执行
+
+```java
+public class SqlSessionFactoryBean implements FactoryBean<SqlSessionFactory>, InitializingBean {
+  private String resource;
+  private SqlSessionFactory sqlSessionFactory;
+
+  @Override
+  public SqlSessionFactory getObject() throws Exception {
+    return sqlSessionFactory;
+  }
+
+  @Override
+  public Class<?> getObjectType() {
+    return SqlSessionFactory.class;
+  }
+
+  @Override
+  public void afterPropertiesSet() throws Exception {
+    log.info("com.doublew2w.sbs.mybatis.spring.SqlSessionFactoryBean.afterPropertiesSet");
+    try (Reader reader = Resources.getResourceAsReader(resource)) {
+      this.sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
+    } catch (Exception e) {
+      log.error(e.getMessage(), e);
+    }
+  }
+
+  public void setResource(String resource) {
+    this.resource = resource;
+  }
+}
+```
+
+
+
+
+
+`org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor` 是 Spring 框架中的一个接口，用于在 Spring 容器的 bean 定义注册中心中执行一些后处理逻辑。它允许我们自定义和修改 bean 定义的过程。
+
+```java
+public class MapperScannerConfigurer implements BeanDefinitionRegistryPostProcessor {
+  private String basePackage;
+  private SqlSessionFactory sqlSessionFactory;
+
+  /**
+   * 在标准初始化之后修改应用程序上下文的内部bean定义注册中心。将加载所有常规bean定义，但还没有实例化任何bean。这允许在下一个后处理阶段开始之前添加进一步的bean定义。
+   *
+   * @param registry 应用程序上下文使用的bean定义注册表
+   */
+  @Override
+  public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry)
+      throws BeansException {
+    try {
+      log.info("com.doublew2w.sbs.mybatis.spring.MapperScannerConfigurer.postProcessBeanDefinitionRegistry");
+      // classpath*:cn/bugstack/**/dao/**/*.class
+      String packageSearchPath = "classpath*:" + basePackage.replace('.', '/') + "/**/*.class";
+
+      ResourcePatternResolver resourcePatternResolver = new PathMatchingResourcePatternResolver();
+      Resource[] resources = resourcePatternResolver.getResources(packageSearchPath);
+
+      for (Resource resource : resources) {
+        // 通过resource和默认类加载器，来读取类文件的元数据
+        MetadataReader metadataReader =
+            new SimpleMetadataReader(resource, ClassUtils.getDefaultClassLoader());
+
+        ScannedGenericBeanDefinition beanDefinition =
+            new ScannedGenericBeanDefinition(metadataReader);
+        String beanName =
+            Introspector.decapitalize(ClassUtils.getShortName(beanDefinition.getBeanClassName()));
+        //设置资源和源信息
+        beanDefinition.setResource(resource);
+        beanDefinition.setSource(resource);
+        beanDefinition.setScope("singleton");
+        // 为beanDefinition的构造函数参数添加两个值：
+        // 第一个参数是Bean的类名。
+        // 第二个参数是sqlSessionFactory对象
+        beanDefinition
+            .getConstructorArgumentValues()
+            .addGenericArgumentValue(beanDefinition.getBeanClassName());
+        beanDefinition.getConstructorArgumentValues().addGenericArgumentValue(sqlSessionFactory);
+        beanDefinition.setBeanClass(MapperFactoryBean.class);
+
+        BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(beanDefinition, beanName);
+        registry.registerBeanDefinition(beanName, definitionHolder.getBeanDefinition());
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * 在标准初始化之后修改应用程序上下文的内部bean工厂。所有的bean定义都已加载，但还没有实例化任何bean。这允许覆盖或添加属性，甚至是对急于初始化的bean
+   *
+   * @param beanFactory 应用程序上下文使用的bean工厂
+   */
+  @Override
+  public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory)
+      throws BeansException {
+    log.info("com.doublew2w.sbs.mybatis.spring.MapperScannerConfigurer#postProcessBeanFactory()");
+  }
+
+  public void setBasePackage(String basePackage) {
+    this.basePackage = basePackage;
+  }
+
+  public void setSqlSessionFactory(SqlSessionFactory sqlSessionFactory) {
+    this.sqlSessionFactory = sqlSessionFactory;
+  }
+}
+```
+
+- 通过 resource 和默认类加载器，来读取类文件的元数据
+- 创建 bean 定义信息
+- 
+
+`org.springframework.core.type.classreading.MetadataReader` 是 Spring 框架中用于读取类元数据的接口。它提供了一种访问类的注解、类信息和其他元数据的方式，通常在类扫描和处理过程中使用。
+
+```java
+public class SimpleMetadataReader implements MetadataReader {
+
+  private final Resource resource;
+
+  private final ClassMetadata classMetadata;
+
+  private final AnnotationMetadata annotationMetadata;
+
+  public SimpleMetadataReader(Resource resource, ClassLoader classLoader) throws IOException {
+    log.info("com.doublew2w.sbs.mybatis.spring.SimpleMetadataReader.SimpleMetadataReader");
+    ClassReader classReader;
+    try (InputStream is = new BufferedInputStream(resource.getInputStream())) {
+      classReader = new ClassReader(is);
+    } catch (IllegalArgumentException ex) {
+      throw new NestedIOException(
+          "ASM ClassReader failed to parse class file - "
+              + "probably due to a new Java class file version that isn't supported yet: "
+              + resource,
+          ex);
+    }
+    AnnotationMetadataReadingVisitor visitor = new AnnotationMetadataReadingVisitor(classLoader);
+    classReader.accept(visitor, ClassReader.SKIP_DEBUG);
+
+    this.annotationMetadata = visitor;
+    // (since AnnotationMetadataReadingVisitor extends ClassMetadataReadingVisitor)
+    this.classMetadata = visitor;
+    this.resource = resource;
+  }
+
+  @Override
+  public Resource getResource() {
+    return this.resource;
+  }
+
+  @Override
+  public ClassMetadata getClassMetadata() {
+    return this.classMetadata;
+  }
+
+  @Override
+  public AnnotationMetadata getAnnotationMetadata() {
+    return this.annotationMetadata;
+  }
+}
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd     http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.0.xsd"
+       default-autowire="byName">
+    <context:component-scan base-package="com.doublew2w.sbs.mybatis"/>
+
+    <aop:aspectj-autoproxy/>
+
+    <bean id="sqlSessionFactory" class="com.doublew2w.sbs.mybatis.spring.SqlSessionFactoryBean">
+        <property name="resource" value="mybatis-config.xml"/>
+    </bean>
+
+    <bean class="com.doublew2w.sbs.mybatis.spring.MapperScannerConfigurer">
+        <!-- 注入sqlSessionFactory -->
+        <property name="sqlSessionFactory" ref="sqlSessionFactory"/>
+        <!-- 给出需要扫描Dao接口包 -->
+        <property name="basePackage" value="com.doublew2w.sbs.mybatis.test.dao"/>
+    </bean>
+
+</beans>
+```
+
+首先通过 name 的方式进行自动注入，扫描的包路径是 `com.doublew2w.sbs.mybatis`。
+
+```xml
+   <bean id="sqlSessionFactory" class="com.doublew2w.sbs.mybatis.spring.SqlSessionFactoryBean">
+        <property name="resource" value="mybatis-config.xml"/>
+    </bean>
+```
+
+创建一个 `sqlSessionFactory` bean，bean 的类型是 `SqlSessionFactory`。通过构造函数来设置 `resources` 属性值。
+
+由于实现了 `InitializingBean` ，因此会调用 `afterPropertiesSet()` 来完成 `this.sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);`  逻辑
+
+
+
+```xml
+    <bean class="com.doublew2w.sbs.mybatis.spring.MapperScannerConfigurer">
+        <!-- 注入sqlSessionFactory -->
+        <property name="sqlSessionFactory" ref="sqlSessionFactory"/>
+        <!-- 给出需要扫描Dao接口包 -->
+        <property name="basePackage" value="com.doublew2w.sbs.mybatis.test.dao"/>
+    </bean>
+```
+
+创建一个 bean 对象 `MapperScannerConfigurer`，并完成 属性值 `sqlSessionFactory` 和 `basePackage` 的设置
+
+紧接着执行 `postProcessBeanDefinitionRegistry()` 方法，完成 mapper 接口的 bean 注入。
+
+<img src="https://doublew2w-note-resource.oss-cn-hangzhou.aliyuncs.com/img/202409260222544.png"/>

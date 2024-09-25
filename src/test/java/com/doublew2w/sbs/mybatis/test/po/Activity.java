@@ -2,6 +2,7 @@ package com.doublew2w.sbs.mybatis.test.po;
 
 import java.util.Date;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * @author: DoubleW2w
@@ -9,6 +10,7 @@ import lombok.Data;
  * @project: sbs-mybatis
  */
 @Data
+@NoArgsConstructor
 public class Activity {
   /** 自增ID */
   private Long id;
@@ -30,4 +32,8 @@ public class Activity {
 
   /** 修改时间 */
   private Date updateTime;
+
+  public Activity(Long activityId) {
+    this.activityId = activityId;
+  }
 }
